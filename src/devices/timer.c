@@ -1,5 +1,6 @@
 #include "devices/timer.h"
 #include "devices/pit.h"
+#include "threads/heap.h"
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
@@ -73,14 +74,22 @@ int64_t timer_ticks(void) {
    should be a value once returned by timer_ticks(). */
 int64_t timer_elapsed(int64_t then) { return timer_ticks() - then; }
 
+static struct thread_heap sleep;
+
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
-void timer_sleep(int64_t ticks) {
+void timer_sleep(int64_t ticks) { // DONE: reimplement to avoid busy waiting
+  // Use a heap to store sleeping threads
   int64_t start = timer_ticks();
-  // TODO: reimplement to avoid busy waiting
-  ASSERT(intr_get_level() == INTR_ON);
-  while (timer_elapsed(start) < ticks)
-    thread_yield();
+
+  enum intr_level old_level = intr_disable();
+
+  struct thread *current_thread = thread_current();
+  current_thread->wakeup_time = start + ticks;
+  heap_push(&sleep, &current_thread);
+  thread_block();
+
+  intr_set_level(old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -129,6 +138,7 @@ void timer_print_stats(void) {
 
 /* Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame *args UNUSED) {
+  // TODO: add check of unblock() for sleeping threads
   ticks++;
   thread_tick();
 }
