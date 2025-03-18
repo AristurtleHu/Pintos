@@ -12,7 +12,7 @@ struct thread_heap {
   heap_less_func *less;    // function to compare two threads
 };
 
-/* initialize a heap */
+/* initialize a min-heap */
 void heap_init(struct thread_heap *heap, heap_less_func *less);
 
 /* swap two threads */
