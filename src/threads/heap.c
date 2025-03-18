@@ -1,4 +1,5 @@
 #include "threads/heap.h"
+#include "lib/stdlib.h"
 #include "threads/thread.h"
 
 void heap_init(struct thread_heap *heap, heap_less_func *less) {
@@ -56,7 +57,7 @@ struct thread *heap_pop(struct thread_heap *heap) {
     if (heap->less(heap->threads[i], heap->threads[smallest]))
       break;
 
-    thread_swap(&heap->threads[i], &heap->threads[smallest]);
+    heap_thread_swap(&heap->threads[i], &heap->threads[smallest]);
     i = smallest;
   }
 
