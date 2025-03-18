@@ -94,7 +94,7 @@ void timer_sleep(int64_t ticks) { // DONE: reimplement to avoid busy waiting
 
   struct thread *current_thread = thread_current();
   current_thread->wakeup_time = start + ticks;
-  heap_push(&sleep, &current_thread);
+  heap_push(&sleep, current_thread);
   thread_block();
 
   intr_set_level(old_level);
@@ -152,7 +152,7 @@ static void timer_interrupt(struct intr_frame *args UNUSED) {
 
   struct thread *thread = heap_top(&sleep);
 
-  while (!thread && thread->wakeup_time <= ticks) {
+  while (thread != NULL && thread->wakeup_time <= ticks) {
     heap_pop(&sleep);
     thread_unblock(thread);
     thread = heap_top(&sleep);
