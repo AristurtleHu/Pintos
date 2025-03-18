@@ -31,11 +31,21 @@ static void busy_wait(int64_t loops);
 static void real_time_sleep(int64_t num, int32_t denom);
 static void real_time_delay(int64_t num, int32_t denom);
 
+static struct thread_heap sleep;
+
+/* Comparison function for sleep heap. */
+static bool thread_wakeup_less(const struct thread *a, const struct thread *b) {
+  return a->wakeup_time < b->wakeup_time;
+}
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
-   and registers the corresponding interrupt. */
+   and registers the corresponding interrupt.
+   Initialize heap for sleeping threads. */
 void timer_init(void) {
+  // DONE: add heap_init() for sleeping threads
   pit_configure_channel(0, 2, TIMER_FREQ);
   intr_register_ext(0x20, timer_interrupt, "8254 Timer");
+  heap_init(&sleep, thread_wakeup_less);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -73,8 +83,6 @@ int64_t timer_ticks(void) {
 /* Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
 int64_t timer_elapsed(int64_t then) { return timer_ticks() - then; }
-
-static struct thread_heap sleep;
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
@@ -138,9 +146,17 @@ void timer_print_stats(void) {
 
 /* Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame *args UNUSED) {
-  // TODO: add check of unblock() for sleeping threads
+  // DONE: add check of unblock() for sleeping threads
   ticks++;
   thread_tick();
+
+  struct thread *thread = heap_top(&sleep);
+
+  while (!thread && thread->wakeup_time <= ticks) {
+    heap_pop(&sleep);
+    thread_unblock(thread);
+    thread = heap_top(&sleep);
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
