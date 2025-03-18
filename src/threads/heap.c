@@ -1,5 +1,5 @@
 #include "threads/heap.h"
-#include "lib/stdlib.h"
+#include "threads/malloc.h"
 #include "threads/thread.h"
 
 void heap_init(struct thread_heap *heap, heap_less_func *less) {
