@@ -31,7 +31,7 @@ static void busy_wait(int64_t loops);
 static void real_time_sleep(int64_t num, int32_t denom);
 static void real_time_delay(int64_t num, int32_t denom);
 
-static struct thread_heap sleep;
+static struct thread_heap sleep; // TODO: free the allocate space of it at the end
 
 /* Comparison function for sleep heap. */
 static bool thread_wakeup_less(const struct thread *a, const struct thread *b) {
