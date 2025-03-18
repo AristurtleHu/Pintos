@@ -67,3 +67,5 @@ struct thread *heap_pop(struct thread_heap *heap) {
 struct thread *heap_top(struct thread_heap *heap) {
   return heap->size == 0 ? NULL : heap->threads[0];
 }
+
+bool heap_empty(struct thread_heap *heap) { return heap->size == 0; }

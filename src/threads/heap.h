@@ -27,4 +27,7 @@ struct thread *heap_pop(struct thread_heap *heap);
 /* get the top thread of the heap */
 struct thread *heap_top(struct thread_heap *heap);
 
+/* check if the heap is empty */
+bool heap_empty(struct thread_heap *heap);
+
 #endif /* threads/heap.h */
