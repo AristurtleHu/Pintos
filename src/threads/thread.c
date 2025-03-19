@@ -200,6 +200,9 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   /* Add to run queue. */
   thread_unblock(t);
 
+  // run the thread with highest priority
+  thread_yield();
+
   return tid;
 }
 
@@ -311,6 +314,9 @@ void thread_foreach(thread_action_func *func, void *aux) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
   thread_current()->priority = new_priority;
+
+  // if the new priority is lower than the highest priority, then yield
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
