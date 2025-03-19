@@ -1,7 +1,9 @@
 #include "threads/thread.h"
 #include "threads/flags.h"
+#include "threads/heap.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
@@ -20,9 +22,11 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
-/* List of processes in THREAD_READY state, that is, processes
+/* Heap of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+struct thread_heap ready_heap;
+// FIXME: free the allocate space of it at the end
+// already done in devices/shutdown.c, check whether it is correct
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -70,6 +74,10 @@ static void schedule(void);
 void thread_schedule_tail(struct thread *prev);
 static tid_t allocate_tid(void);
 
+static bool priority_higher(const struct thread *a, const struct thread *b) {
+  return a->priority > b->priority;
+}
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -87,7 +95,6 @@ void thread_init(void) {
   ASSERT(intr_get_level() == INTR_OFF);
 
   lock_init(&tid_lock);
-  list_init(&ready_list);
   list_init(&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -100,6 +107,9 @@ void thread_init(void) {
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void thread_start(void) {
+  heap_init(&ready_heap, priority_higher);
+  // if add to thread_init(), it will cause a bug of is_thread() wrong
+
   /* Create the idle thread. */
   struct semaphore idle_started;
   sema_init(&idle_started, 0);
@@ -222,7 +232,7 @@ void thread_unblock(struct thread *t) {
 
   old_level = intr_disable();
   ASSERT(t->status == THREAD_BLOCKED);
-  list_push_back(&ready_list, &t->elem);
+  heap_push(&ready_heap, t);
   t->status = THREAD_READY;
   intr_set_level(old_level);
 }
@@ -279,7 +289,7 @@ void thread_yield(void) {
 
   old_level = intr_disable();
   if (cur != idle_thread)
-    list_push_back(&ready_list, &cur->elem);
+    heap_push(&ready_heap, cur);
   cur->status = THREAD_READY;
   schedule();
   intr_set_level(old_level);
@@ -426,10 +436,10 @@ static void *alloc_frame(struct thread *t, size_t size) {
    will be in the run queue.)  If the run queue is empty, return
    idle_thread. */
 static struct thread *next_thread_to_run(void) {
-  if (list_empty(&ready_list))
+  if (heap_empty(&ready_heap))
     return idle_thread;
   else
-    return list_entry(list_pop_front(&ready_list), struct thread, elem);
+    return heap_pop(&ready_heap);
 }
 
 /* Completes a thread switch by activating the new thread's page

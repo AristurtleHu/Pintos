@@ -31,7 +31,8 @@ static void busy_wait(int64_t loops);
 static void real_time_sleep(int64_t num, int32_t denom);
 static void real_time_delay(int64_t num, int32_t denom);
 
-struct thread_heap sleep; // FIXME: free the allocate space of it at the end
+struct thread_heap sleep;
+// FIXME: free the allocate space of it at the end
 // already done in devices/shutdown.c, check whether it is correct
 
 /* Comparison function for sleep heap. */

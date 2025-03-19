@@ -17,6 +17,7 @@
 #endif
 
 extern struct thread_heap sleep;
+extern struct thread_heap ready_heap;
 
 /* Keyboard control register port. */
 #define CONTROL_REG 0x64
@@ -79,6 +80,7 @@ void shutdown_reboot(void) {
    as long as we're running on Bochs or QEMU. */
 void shutdown_power_off(void) {
   free(sleep.threads);
+  free(ready_heap.threads);
 
   const char s[] = "Shutdown";
   const char *p;
