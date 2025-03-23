@@ -69,3 +69,31 @@ struct thread *heap_top(struct thread_heap *heap) {
 }
 
 bool heap_empty(struct thread_heap *heap) { return heap->size == 0; }
+
+void down_heap(struct thread_heap *heap, int index) {
+  for (int ch; (index << 1) <= heap->size; index = ch) {
+    ch = index << 1;
+    ch += (ch < heap->size &&
+           heap->less(heap->threads[ch], heap->threads[ch | 1]));
+    if (heap->less(heap->threads[index], heap->threads[ch]))
+      heap_thread_swap(&heap->threads[index], &heap->threads[ch]);
+    else
+      break;
+  }
+}
+
+void up_heap(struct thread_heap *heap, int index) {
+  for (int p; index > 1; index = p) {
+    p = index >> 1;
+    if (heap->less(heap->threads[p], heap->threads[index]))
+      heap_thread_swap(&heap->threads[p], &heap->threads[index]);
+    else
+      break;
+  }
+}
+
+void heap_restructure(struct thread_heap *heap) {
+  ASSERT(heap != NULL);
+  for (int i = heap->size; i > 0; i--)
+    down_heap(heap, i);
+}

@@ -30,4 +30,13 @@ struct thread *heap_top(struct thread_heap *heap);
 /* check if the heap is empty */
 bool heap_empty(struct thread_heap *heap);
 
+/* down heap */
+void down_heap(struct thread_heap *heap, int index);
+
+/* up heap */
+void up_heap(struct thread_heap *heap, int index);
+
+/* restructure the heap */
+void heap_restructure(struct thread_heap *heap);
+
 #endif /* threads/heap.h */
