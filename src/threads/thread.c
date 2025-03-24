@@ -207,7 +207,8 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   thread_unblock(t);
 
   // run the thread with highest priority
-  thread_yield();
+  if (thread_current()->priority < priority)
+    thread_yield();
 
   return tid;
 }
@@ -323,12 +324,14 @@ void thread_set_priority(int new_priority) {
 
   struct thread *cur = thread_current();
   cur->priority_original = new_priority;
+  int old_priority = cur->priority;
 
   if (cur->priority < new_priority || list_empty(&cur->locks))
     cur->priority = new_priority;
 
-  // if the new priority is lower than the highest priority, then yield
-  thread_yield();
+  // if the priority is lower, then yield
+  if (cur->priority < old_priority)
+    thread_yield();
 }
 
 void thread_update_priority(struct thread *t, void *aux UNUSED) {
