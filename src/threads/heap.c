@@ -39,9 +39,7 @@ void heap_rebuild(struct heap *heap) {
 }
 
 heap_elem heap_top(struct heap *heap) {
-  ASSERT(heap != NULL && !heap_empty(heap));
-
-  return heap->elems[1];
+  return heap->size > 0 ? heap->elems[1] : NULL;
 }
 
 void heap_push(struct heap *heap, heap_elem elem) {

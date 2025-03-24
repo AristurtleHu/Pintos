@@ -1,9 +1,8 @@
 #include "threads/thread.h"
+#include "devices/timer.h"
 #include "threads/flags.h"
-#include "threads/heap.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
-#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
@@ -24,9 +23,23 @@
 
 /* Heap of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-struct thread_heap ready_heap;
-// FIXME: free the allocate space of it at the end
-// already done in devices/shutdown.c, check whether it is correct
+struct heap ready_heap;
+static int64_t ord = 0;
+
+bool thread_heap_less(const heap_elem a, const heap_elem b) {
+  const struct thread *elem_a = (struct thread *)a;
+  const struct thread *elem_b = (struct thread *)b;
+
+  return elem_a->priority != elem_b->priority
+             ? elem_a->priority < elem_b->priority
+             : elem_a->entry_ord > elem_b->entry_ord;
+}
+
+bool thread_priority_less(const struct list_elem *a, const struct list_elem *b,
+                          void *aux UNUSED) {
+  return list_entry(a, struct thread, elem)->priority <
+         list_entry(b, struct thread, elem)->priority;
+}
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -61,6 +74,7 @@ static unsigned thread_ticks; /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+int load_avg;
 
 static void kernel_thread(thread_func *, void *aux);
 
@@ -73,16 +87,6 @@ static void *alloc_frame(struct thread *, size_t size);
 static void schedule(void);
 void thread_schedule_tail(struct thread *prev);
 static tid_t allocate_tid(void);
-
-static bool priority_higher(const struct thread *a, const struct thread *b) {
-  return a->priority > b->priority;
-}
-
-bool thread_priority_less(const struct list_elem *a, const struct list_elem *b,
-                          void *aux UNUSED) {
-  return list_entry(a, struct thread, elem)->priority <
-         list_entry(b, struct thread, elem)->priority;
-}
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -101,6 +105,7 @@ void thread_init(void) {
   ASSERT(intr_get_level() == INTR_OFF);
 
   lock_init(&tid_lock);
+  heap_init(&ready_heap, thread_heap_less);
   list_init(&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -108,14 +113,13 @@ void thread_init(void) {
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
+
+  load_avg = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
    Also creates the idle thread. */
 void thread_start(void) {
-  heap_init(&ready_heap, priority_higher);
-  // if add to thread_init(), it will cause a bug of is_thread() wrong
-
   /* Create the idle thread. */
   struct semaphore idle_started;
   sema_init(&idle_started, 0);
@@ -206,9 +210,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   /* Add to run queue. */
   thread_unblock(t);
 
-  // run the thread with highest priority
-  if (thread_current()->priority < priority)
-    thread_yield();
+  thread_yield();
 
   return tid;
 }
@@ -242,6 +244,7 @@ void thread_unblock(struct thread *t) {
 
   old_level = intr_disable();
   ASSERT(t->status == THREAD_BLOCKED);
+  t->entry_ord = ord++;
   heap_push(&ready_heap, t);
   t->status = THREAD_READY;
   intr_set_level(old_level);
@@ -298,8 +301,10 @@ void thread_yield(void) {
   ASSERT(!intr_context());
 
   old_level = intr_disable();
-  if (cur != idle_thread)
+  if (cur != idle_thread) {
+    cur->entry_ord = ord++;
     heap_push(&ready_heap, cur);
+  }
   cur->status = THREAD_READY;
   schedule();
   intr_set_level(old_level);
@@ -320,31 +325,31 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-  // only thread holds the lock or no relation with the lock will enter this
+  if (thread_mlfqs)
+    return;
 
   struct thread *cur = thread_current();
-  cur->priority_original = new_priority;
-  int old_priority = cur->priority;
 
+  cur->priority_original = new_priority;
   if (cur->priority < new_priority || list_empty(&cur->locks))
     cur->priority = new_priority;
 
-  // if the priority is lower, then yield
-  if (cur->priority < old_priority)
-    thread_yield();
+  thread_yield();
 }
 
+/* Update thread priority */
 void thread_update_priority(struct thread *t, void *aux UNUSED) {
+
   int priority = t->priority_original;
 
   if (!list_empty(&t->locks)) {
-    int donate_priority =
+    int priority_donate =
         list_entry(list_max(&t->locks, lock_priority_less, NULL), struct lock,
                    elem)
-            ->priority;
+            ->priority_donate;
 
-    if (donate_priority > priority)
-      priority = donate_priority;
+    if (priority_donate > priority)
+      priority = priority_donate;
   }
 
   t->priority = priority;
@@ -452,6 +457,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   t->priority_original = priority;
   list_init(&t->locks);
   t->lock_waiting = NULL;
+  t->entry_ord = 0;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable();
