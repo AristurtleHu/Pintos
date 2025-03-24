@@ -183,16 +183,13 @@ bool lock_priority_less(const struct list_elem *a, const struct list_elem *b,
 
 /* Donate priority. */
 void donate_priority(struct thread *t, int dep) {
-  if (thread_mlfqs)
-    return;
-
   if (dep > DONATE_MAX_DEPTH || t->lock_waiting == NULL)
     return;
 
   if (t->lock_waiting->priority_donate < t->priority) {
     t->lock_waiting->priority_donate = t->priority;
 
-    if (t->priority > t->lock_waiting->holder->priority)
+    if (t->lock_waiting->holder->priority < t->priority)
       t->lock_waiting->holder->priority = t->priority;
 
     donate_priority(t->lock_waiting->holder, dep + 1);

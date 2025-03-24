@@ -32,7 +32,7 @@ bool thread_heap_less(const heap_elem a, const heap_elem b) {
 
   return elem_a->priority != elem_b->priority
              ? elem_a->priority < elem_b->priority
-             : elem_a->entry_ord > elem_b->entry_ord;
+             : elem_a->ord > elem_b->ord;
 }
 
 bool thread_priority_less(const struct list_elem *a, const struct list_elem *b,
@@ -74,7 +74,6 @@ static unsigned thread_ticks; /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
-int load_avg;
 
 static void kernel_thread(thread_func *, void *aux);
 
@@ -113,8 +112,6 @@ void thread_init(void) {
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
-
-  load_avg = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -244,7 +241,7 @@ void thread_unblock(struct thread *t) {
 
   old_level = intr_disable();
   ASSERT(t->status == THREAD_BLOCKED);
-  t->entry_ord = ord++;
+  t->ord = ord++;
   heap_push(&ready_heap, t);
   t->status = THREAD_READY;
   intr_set_level(old_level);
@@ -302,7 +299,7 @@ void thread_yield(void) {
 
   old_level = intr_disable();
   if (cur != idle_thread) {
-    cur->entry_ord = ord++;
+    cur->ord = ord++;
     heap_push(&ready_heap, cur);
   }
   cur->status = THREAD_READY;
@@ -325,9 +322,6 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-  if (thread_mlfqs)
-    return;
-
   struct thread *cur = thread_current();
 
   cur->priority_original = new_priority;
@@ -340,7 +334,7 @@ void thread_set_priority(int new_priority) {
 /* Update thread priority */
 void thread_update_priority(struct thread *t, void *aux UNUSED) {
 
-  int priority = t->priority_original;
+  int priority = t->priority_original; // original priority
 
   if (!list_empty(&t->locks)) {
     int priority_donate =
@@ -457,7 +451,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   t->priority_original = priority;
   list_init(&t->locks);
   t->lock_waiting = NULL;
-  t->entry_ord = 0;
+  t->ord = 0;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable();

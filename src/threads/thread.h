@@ -91,19 +91,15 @@ struct thread {
   char name[16];             /* Name (for debugging purposes). */
   uint8_t *stack;            /* Saved stack pointer. */
   int priority;              /* Priority. */
-  int priority_original;     /* Original priority*/
-  int64_t wake_time;         /* Wake up time (tick). */
-  int entry_ord;             /* Entry order (priority FIFO) */
+  int priority_original;     /* Original priority */
+  int64_t wake_time;         /* Wake up time */
+  int ord;                   /* FIFO order */
   struct list_elem allelem;  /* List element for all threads list. */
-
-  /* mlfqs. */
-  int nice;
-  fixed_point recent_cpu;
 
   /* Shared between thread.c and synch.c. */
   struct list_elem elem;     /* List element. */
   struct list locks;         /* List of acquired locks */
-  struct lock *lock_waiting; /* Lock that this thread is waiting */
+  struct lock *lock_waiting; /* Waiting Lock */
 
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
@@ -118,7 +114,6 @@ struct thread {
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
-extern fixed_point load_avg;
 
 void thread_init(void);
 void thread_start(void);
