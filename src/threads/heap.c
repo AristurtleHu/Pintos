@@ -1,99 +1,94 @@
-#include "threads/heap.h"
-#include "threads/malloc.h"
-#include "threads/thread.h"
+#include "heap.h"
+#include <stdio.h>
 
-void heap_init(struct thread_heap *heap, heap_less_func *less) {
+static void swap(heap_elem *a, heap_elem *b) {
+  heap_elem t = *a;
+  *a = *b;
+  *b = t;
+}
+
+void heap_init(struct heap *heap, heap_less_func *less) {
+  ASSERT(heap != NULL);
+
   heap->size = 0;
-  heap->capacity = 8;
-  heap->threads =
-      (struct thread **)malloc(heap->capacity * sizeof(struct thread *));
   heap->less = less;
 }
 
-void heap_thread_swap(struct thread **a, struct thread **b) {
-  struct thread *temp = *a;
-  *a = *b;
-  *b = temp;
+/* Rebuild heap to fit donated priority */
+void heap_rebuild(struct heap *heap) {
+  ASSERT(heap != NULL);
+
+  for (size_t i = heap->size / 2; i >= 1; i--) {
+    size_t index = i;
+
+    while (2 * index <= heap->size) {
+      size_t child = 2 * index;
+
+      if (child < heap->size &&
+          heap->less(heap->elems[child], heap->elems[child + 1]))
+        child++;
+
+      if (heap->less(heap->elems[index], heap->elems[child])) {
+        swap(&heap->elems[index], &heap->elems[child]);
+        index = child;
+      } else {
+        break;
+      }
+    }
+  }
 }
 
-void heap_push(struct thread_heap *heap, struct thread *thread) {
-  // size *= 2 each time
-  if (heap->size == heap->capacity) {
-    heap->capacity *= 2;
-    heap->threads = (struct thread **)realloc(
-        heap->threads, heap->capacity * sizeof(struct thread *));
-  }
+heap_elem heap_top(struct heap *heap) {
+  ASSERT(heap != NULL && !heap_empty(heap));
 
-  heap->threads[heap->size] = thread;
+  return heap->elems[1];
+}
 
-  int i = heap->size;
-  while (i > 0 && heap->less(heap->threads[i], heap->threads[(i - 1) / 2])) {
-    heap_thread_swap(&heap->threads[i], &heap->threads[(i - 1) / 2]);
-    i = (i - 1) / 2;
-  }
+void heap_push(struct heap *heap, heap_elem elem) {
+  ASSERT(heap->size + 1 <= MAX_HEAP_SIZE);
 
   heap->size++;
+  heap->elems[heap->size] = elem;
+
+  size_t index = heap->size;
+  while (index > 1) {
+    size_t parent = index / 2;
+
+    if (heap->less(heap->elems[parent], heap->elems[index])) {
+      swap(&heap->elems[parent], &heap->elems[index]);
+      index = parent;
+    } else {
+      break;
+    }
+  }
 }
 
-struct thread *heap_pop(struct thread_heap *heap) {
-  if (heap->size == 0)
-    return NULL;
+heap_elem heap_pop(struct heap *heap) {
+  ASSERT(!heap_empty(heap));
 
-  struct thread *result = heap->threads[0];
+  heap_elem result = heap->elems[1];
+  heap->elems[1] = heap->elems[heap->size];
   heap->size--;
-  heap->threads[0] = heap->threads[heap->size];
 
-  int i = 0;
-  while (2 * i + 1 < heap->size) {
-    int left = 2 * i + 1;
-    int right = 2 * i + 2;
-    int smallest = left;
-    if (right < heap->size &&
-        heap->less(heap->threads[right], heap->threads[left])) {
-      smallest = right;
-    }
+  size_t index = 1;
+  while (2 * index <= heap->size) {
+    size_t child = 2 * index;
 
-    // The heap property is satisfied
-    if (heap->less(heap->threads[i], heap->threads[smallest]))
+    if (child < heap->size &&
+        heap->less(heap->elems[child], heap->elems[child + 1]))
+      child++;
+
+    if (heap->less(heap->elems[index], heap->elems[child])) {
+      swap(&heap->elems[index], &heap->elems[child]);
+      index = child;
+    } else {
       break;
-
-    heap_thread_swap(&heap->threads[i], &heap->threads[smallest]);
-    i = smallest;
+    }
   }
 
   return result;
 }
 
-struct thread *heap_top(struct thread_heap *heap) {
-  return heap->size == 0 ? NULL : heap->threads[0];
-}
+size_t heap_size(struct heap *heap) { return heap->size; }
 
-bool heap_empty(struct thread_heap *heap) { return heap->size == 0; }
-
-void down_heap(struct thread_heap *heap, int index) {
-  for (int ch; (index << 1) <= heap->size; index = ch) {
-    ch = index << 1;
-    ch += (ch < heap->size &&
-           heap->less(heap->threads[ch], heap->threads[ch | 1]));
-    if (heap->less(heap->threads[index], heap->threads[ch]))
-      heap_thread_swap(&heap->threads[index], &heap->threads[ch]);
-    else
-      break;
-  }
-}
-
-void up_heap(struct thread_heap *heap, int index) {
-  for (int p; index > 1; index = p) {
-    p = index >> 1;
-    if (heap->less(heap->threads[p], heap->threads[index]))
-      heap_thread_swap(&heap->threads[p], &heap->threads[index]);
-    else
-      break;
-  }
-}
-
-void heap_restructure(struct thread_heap *heap) {
-  ASSERT(heap != NULL);
-  for (int i = heap->size; i > 0; i--)
-    down_heap(heap, i);
-}
+bool heap_empty(struct heap *heap) { return heap->size == 0; }
