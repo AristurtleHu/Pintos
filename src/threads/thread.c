@@ -80,8 +80,8 @@ static bool priority_higher(const struct thread *a, const struct thread *b) {
 
 bool thread_priority_less(const struct list_elem *a, const struct list_elem *b,
                           void *aux UNUSED) {
-  return list_entry(a, struct thread, elem) <
-         list_entry(b, struct thread, elem);
+  return list_entry(a, struct thread, elem)->priority <
+         list_entry(b, struct thread, elem)->priority;
 }
 
 /* Initializes the threading system by transforming the code
@@ -319,10 +319,32 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-  thread_current()->priority = new_priority;
+  // only thread holds the lock or no relation with the lock will enter this
+
+  struct thread *cur = thread_current();
+  cur->priority_original = new_priority;
+
+  if (cur->priority < new_priority || list_empty(&cur->locks))
+    cur->priority = new_priority;
 
   // if the new priority is lower than the highest priority, then yield
   thread_yield();
+}
+
+void thread_update_priority(struct thread *t, void *aux UNUSED) {
+  int priority = t->priority_original;
+
+  if (!list_empty(&t->locks)) {
+    int donate_priority =
+        list_entry(list_max(&t->locks, lock_priority_less, NULL), struct lock,
+                   elem)
+            ->priority;
+
+    if (donate_priority > priority)
+      priority = donate_priority;
+  }
+
+  t->priority = priority;
 }
 
 /* Returns the current thread's priority. */
@@ -425,6 +447,8 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   t->stack = (uint8_t *)t + PGSIZE;
   t->priority = priority;
   t->priority_original = priority;
+  list_init(&t->locks);
+  t->lock_waiting = NULL;
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable();
