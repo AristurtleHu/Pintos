@@ -42,6 +42,8 @@ bool thread_priority_less(const struct list_elem *a, const struct list_elem *b,
          list_entry(b, struct thread, elem)->priority;
 }
 
+void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED);
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -148,6 +150,7 @@ void thread_tick(void) {
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return();
+
   if(t != idle_thread){
     t->recent_cpu = ADD_INT(t->recent_cpu, 1);
   }
@@ -159,7 +162,9 @@ void thread_tick(void) {
     intr_set_level(old_level);
   }
   if(thread_mlfqs && ticks % 4 == 0){
+    enum intr_level old_level = intr_disable();
     thread_foreach(thread_update_mlfqs_priority, NULL);
+    intr_set_level(old_level);
   }
 }
 
@@ -336,6 +341,9 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
+  if(thread_mlfqs)
+    return;
+
   struct thread *cur = thread_current();
 
   cur->priority_original = new_priority;
@@ -363,13 +371,15 @@ void thread_update_priority(struct thread *t, void *aux UNUSED) {
   t->priority = priority;
 }
 
-static void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED) {
+void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED) {
   if (t == idle_thread)
     return;
 
   t->priority = PRI_MAX - FIXED_TO_INT(DIV_INT(t->recent_cpu, 4)) - t->nice * 2;
-  t->priority = t->priority < PRI_MIN ? PRI_MIN : 
-                (t->priority > PRI_MAX ? PRI_MAX : t->priority);
+  if(t->priority < PRI_MIN)
+    t->priority = PRI_MIN; 
+  if(t->priority > PRI_MAX)
+    t->priority = PRI_MAX;
 }
 /* Returns the current thread's priority. */
 int thread_get_priority(void) { return thread_current()->priority; }
@@ -378,44 +388,53 @@ void thread_update_recent_cpu(struct thread *t, void *aux UNUSED){
   if(t == idle_thread)
     return;
   //thread_update_load_avg();
+  fixed_t recent_cpu = t->recent_cpu;
+  fixed_t nice = t->nice;
   fixed_t load_avg_2 = MUL_INT(load_avg, 2);
   fixed_t coef = DIV_FIXED(load_avg_2, ADD_INT(load_avg_2, 1));
-  t->recent_cpu = ADD_INT(MUL_FIXED(coef, t->recent_cpu), t->nice);
+  t->recent_cpu = ADD_INT(MUL_FIXED(coef, recent_cpu), nice);
 }
 
 void thread_update_load_avg(void){
-  int ready_threads = heap_size(&ready_heap);
+  size_t ready_threads = 0;
+  ready_threads += heap_size(&ready_heap);
   if(thread_current() != idle_thread)
     ready_threads++;
-  load_avg = ADD_FIXED(MUL_FIXED(DIV_INT(INT_TO_FIXED(59), 60), load_avg), MUL_INT(DIV_INT(INT_TO_FIXED(1), 60), ready_threads));
+  fixed_t factor_59_60 = DIV_FIXED(INT_TO_FIXED(59), INT_TO_FIXED(60));
+  fixed_t factor_1_60 = DIV_FIXED(INT_TO_FIXED(1), INT_TO_FIXED(60));
+  
+  load_avg = ADD_FIXED(
+    MUL_FIXED(factor_59_60, load_avg),
+    MUL_FIXED(factor_1_60, INT_TO_FIXED(ready_threads))
+  );
 }
 
 /* Sets the current thread's nice value to NICE. */
 void thread_set_nice(int nice UNUSED) { 
   enum intr_level old_level = intr_disable();
   struct thread *t = thread_current();
-  t->nice = nice < NICE_MIN ? NICE_MIN : (nice > NICE_MAX ? NICE_MAX : nice);
+  if(nice > 20)
+    nice = 20;
+  if(nice < -20)
+    nice = -20;
+  t->nice = nice;
   thread_update_mlfqs_priority(t, NULL);
   intr_set_level(old_level);
-  /* Not yet implemented. */
  }
 
 /* Returns the current thread's nice value. */
 int thread_get_nice(void) {
-  /* Not yet implemented. */
   return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int thread_get_load_avg(void) {
-  /* Not yet implemented. */
-  return FIXED_TO_INT(MUL_INT(load_avg, 100));
+  return ROUND_FIXED(MUL_INT(load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int thread_get_recent_cpu(void) {
-  /* Not yet implemented. */
-  return FIXED_TO_INT(MUL_INT(thread_current()->recent_cpu, 100));
+  return ROUND_FIXED(MUL_INT(thread_current()->recent_cpu, 100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
