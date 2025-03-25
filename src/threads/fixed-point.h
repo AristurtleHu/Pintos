@@ -18,7 +18,7 @@ typedef int32_t fixed_t;
 #define SUB_INT(x, n) (x - n * F)
 #define MUL_FIXED(x, y) ((fixed_t)(((int64_t)(x) * (y)) / F))
 #define MUL_INT(x, n) ((x) * (n))
-#define DIV_FIXED(x, y) ((fixed_t)(((int64_t)(x) * F) / (F)))
+#define DIV_FIXED(x, y) ((fixed_t)(((int64_t)(x) * F) / (y)))
 #define DIV_INT(x, n) ((x) / (n))
 
 

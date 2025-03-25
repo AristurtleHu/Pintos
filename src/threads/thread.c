@@ -154,7 +154,9 @@ void thread_tick(void) {
   int ticks = timer_ticks();
   if(thread_mlfqs && ticks % TIMER_FREQ == 0){
     thread_update_load_avg();
+    enum intr_level old_level = intr_disable();
     thread_foreach(thread_update_recent_cpu, NULL);
+    intr_set_level(old_level);
   }
   if(thread_mlfqs && ticks % 4 == 0){
     thread_foreach(thread_update_mlfqs_priority, NULL);
@@ -375,6 +377,7 @@ int thread_get_priority(void) { return thread_current()->priority; }
 void thread_update_recent_cpu(struct thread *t, void *aux UNUSED){
   if(t == idle_thread)
     return;
+  //thread_update_load_avg();
   fixed_t load_avg_2 = MUL_INT(load_avg, 2);
   fixed_t coef = DIV_FIXED(load_avg_2, ADD_INT(load_avg_2, 1));
   t->recent_cpu = ADD_INT(MUL_FIXED(coef, t->recent_cpu), t->nice);
