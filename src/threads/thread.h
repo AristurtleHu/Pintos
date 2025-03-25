@@ -24,6 +24,10 @@ typedef int tid_t;
 #define PRI_MIN 0      /* Lowest priority. */
 #define PRI_DEFAULT 31 /* Default priority. */
 #define PRI_MAX 63     /* Highest priority. */
+#define NICE_MIN -20   /* Minimum nice value */
+#define NICE_MAX 20    /* Maximum nice value */
+#define NICE_DEFAULT 0 /* Default nice value */
+
 
 /* Max donation depth given by the document */
 #define DONATE_MAX_DEPTH 8
@@ -96,6 +100,11 @@ struct thread {
   int ord;                   /* FIFO order */
   struct list_elem allelem;  /* List element for all threads list. */
 
+  int nice;              /* Nice value for MLFQS */
+  fixed_t recent_cpu; /* Recent CPU for MLFQS */
+  
+
+
   /* Shared between thread.c and synch.c. */
   struct list_elem elem;     /* List element. */
   struct list locks;         /* List of acquired locks */
@@ -148,5 +157,9 @@ int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
+
+void thread_update_recent_cpu(struct thread *t, void *aux UNUSED);
+void thread_update_load_avg(void);
+static void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED);
 
 #endif /* threads/thread.h */
