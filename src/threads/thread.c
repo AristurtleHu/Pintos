@@ -367,9 +367,7 @@ void thread_foreach(thread_action_func *func, void *aux) {
   }
 }
 
-/* Sets the current thread's original priority to NEW_PRIORITY.
-  Thread holds the lock or has no relation with the lock.
-  Block threads will not enter this. */
+/* Sets the current thread's original priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
   if (thread_mlfqs)
     return;
