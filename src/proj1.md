@@ -90,7 +90,7 @@ struct thread {
 
 struct lock {
   struct list_elem elem;      /* List element. */
-  int priority_donate;        /* Max priority from priority donation */
+  int priority;        /* Max priority from priority donation */
 };
 ```
 thread donate to lock to thread, original used to recover after donation.
@@ -104,16 +104,18 @@ donation:
 
 ```C
 void donate_priority(struct thread *t, int dep) {
-  if (dep > DONATE_MAX_DEPTH || t->lock_waiting == NULL)
+  struct lock *lock = t->lock_waiting;
+
+  if (dep > DONATE_MAX_DEPTH || lock == NULL)
     return;
 
-  if (t->lock_waiting->priority_donate < t->priority) {
-    t->lock_waiting->priority_donate = t->priority;
+  if (lock->priority < t->priority) { // Need donation
+    // Donate to lock
+    lock->priority = t->priority;
+    // Donate to lock's holder
+    lock->holder->priority = max(t->priority, lock->holder->priority);
 
-    if (t->lock_waiting->holder->priority < t->priority)
-      t->lock_waiting->holder->priority = t->priority;
-
-    donate_priority(t->lock_waiting->holder, dep + 1);
+    donate_priority(lock->holder, dep + 1);
   }
 }
 ```
@@ -134,7 +136,7 @@ void donate_priority(struct thread *t, int dep) {
 
 - The current thread (high priority) discovers the lock is held by another thread (low priority)
 - The high-priority thread "donates" its priority to the lock holder
-- The priority_donate field in the lock structure is updated to track this donation
+- The priority field in the lock structure is updated to track this donation
 - The current thread blocks on the semaphore until the lock becomes available
  
 **Nested Donation Handling**
@@ -150,13 +152,13 @@ Priority donation cascades through the chain:
 
 This ensures that thread L runs at the highest priority of any thread waiting on it directly or indirectly, preventing priority inversion across lock chains.
 
-The priority_donate field in each lock stores the highest donated priority, enabling the system to track and correctly revert priorities when locks are released.
+The priorityfield in each lock stores the highest donated priority, enabling the system to track and correctly revert priorities when locks are released.
 
 > **B5:** Describe the sequence of events when `lock_release()` is called on a lock that a higher-priority thread is waiting for.
 > 
 The lock's holder field is set to NULL.
 
-The donated priority in priority_donate is likely reset to `PRI_MIN`.
+The donated priority in priority is likely reset to `PRI_MIN`.
 
 `sema_up(&lock->semaphore)` is called to release the semaphore.
 The sema_up() call increments the semaphore value and wakes up one waiting thread with the highest priority.
