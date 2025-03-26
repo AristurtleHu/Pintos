@@ -1,12 +1,14 @@
 #include "heap.h"
 #include <stdio.h>
 
+/* Swap two elements, helper function */
 static void swap(heap_elem *a, heap_elem *b) {
   heap_elem t = *a;
   *a = *b;
   *b = t;
 }
 
+/* Initialize heap */
 void heap_init(struct heap *heap, heap_less_func *less) {
   ASSERT(heap != NULL);
 
@@ -38,10 +40,12 @@ void heap_rebuild(struct heap *heap) {
   }
 }
 
+/* Return the top element */
 heap_elem heap_top(struct heap *heap) {
   return heap->size > 0 ? heap->elems[1] : NULL;
 }
 
+/* Push element to heap */
 void heap_push(struct heap *heap, heap_elem elem) {
   ASSERT(heap->size + 1 <= MAX_HEAP_SIZE);
 
@@ -61,6 +65,7 @@ void heap_push(struct heap *heap, heap_elem elem) {
   }
 }
 
+/* Pop element from heap */
 heap_elem heap_pop(struct heap *heap) {
   ASSERT(!heap_empty(heap));
 
@@ -87,6 +92,8 @@ heap_elem heap_pop(struct heap *heap) {
   return result;
 }
 
+/* Return heap size */
 size_t heap_size(struct heap *heap) { return heap->size; }
 
+/* Return true if heap is empty */
 bool heap_empty(struct heap *heap) { return heap->size == 0; }

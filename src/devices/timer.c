@@ -34,6 +34,8 @@ static void real_time_delay(int64_t num, int32_t denom);
 /* Heap storing sleeping threads. */
 static struct heap sleep_heap;
 
+/* Compare function for sleep_heap.
+  Return true for a < b */
 static bool sleep_less(const heap_elem a, const heap_elem b) {
   return ((struct thread *)a)->wake_time > ((struct thread *)b)->wake_time;
 }
@@ -142,7 +144,8 @@ void timer_print_stats(void) {
   printf("Timer: %" PRId64 " ticks\n", timer_ticks());
 }
 
-/* Timer interrupt handler. */
+/* Timer interrupt handler.
+   Wake up sleeping threads */
 static void timer_interrupt(struct intr_frame *args UNUSED) {
   ticks++;
   thread_tick();
