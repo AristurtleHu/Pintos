@@ -28,7 +28,6 @@ typedef int tid_t;
 #define NICE_MAX 20    /* Maximum nice value */
 #define NICE_DEFAULT 0 /* Default nice value */
 
-
 /* Max donation depth given by the document */
 #define DONATE_MAX_DEPTH 8
 
@@ -99,11 +98,8 @@ struct thread {
   int64_t wake_time;         /* Wake up time */
   int ord;                   /* FIFO order */
   struct list_elem allelem;  /* List element for all threads list. */
-
-  int nice;              /* Nice value for MLFQS */
-  fixed_t recent_cpu; /* Recent CPU for MLFQS */
-  
-
+  int nice;                  /* Nice value for MLFQS */
+  fixed_t recent_cpu;        /* Recent CPU for MLFQS */
 
   /* Shared between thread.c and synch.c. */
   struct list_elem elem;     /* List element. */
