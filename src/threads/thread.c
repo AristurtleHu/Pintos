@@ -41,7 +41,7 @@ bool thread_priority_less(const struct list_elem *a, const struct list_elem *b,
   return list_entry(a, struct thread, elem)->priority <
          list_entry(b, struct thread, elem)->priority;
 }
-
+/* Updates the priority of the thread in mlfqs*/
 void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED);
 
 /* List of all processes.  Processes are added to this list
@@ -150,17 +150,19 @@ void thread_tick(void) {
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return();
-
+  //update recent_cpu if the thread is not idle
   if(t != idle_thread){
     t->recent_cpu = ADD_INT(t->recent_cpu, 1);
   }
   int ticks = timer_ticks();
+  //update recent_cpu all threads after update load_avg
   if(thread_mlfqs && ticks % TIMER_FREQ == 0){
     thread_update_load_avg();
     enum intr_level old_level = intr_disable();
     thread_foreach(thread_update_recent_cpu, NULL);
     intr_set_level(old_level);
   }
+  //update priority of all threads for every 4 ticks
   if(thread_mlfqs && ticks % 4 == 0){
     enum intr_level old_level = intr_disable();
     thread_foreach(thread_update_mlfqs_priority, NULL);
@@ -353,7 +355,7 @@ void thread_set_priority(int new_priority) {
   thread_yield();
 }
 
-/* Update thread priority */
+/* Update thread priority in priorty donate*/
 void thread_update_priority(struct thread *t, void *aux UNUSED) {
 
   int priority = t->priority_original; // original priority
@@ -371,10 +373,11 @@ void thread_update_priority(struct thread *t, void *aux UNUSED) {
   t->priority = priority;
 }
 
+/* Update thread priority in mlfqs*/
 void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED) {
   if (t == idle_thread)
     return;
-
+// priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
   t->priority = PRI_MAX - FIXED_TO_INT(DIV_INT(t->recent_cpu, 4)) - t->nice * 2;
   if(t->priority < PRI_MIN)
     t->priority = PRI_MIN; 
@@ -383,16 +386,17 @@ void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED) {
 }
 /* Returns the current thread's priority. */
 int thread_get_priority(void) { return thread_current()->priority; }
-
+//update recent_cpu in every second
 void thread_update_recent_cpu(struct thread *t, void *aux UNUSED){
   if(t == idle_thread)
     return;
   //thread_update_load_avg();
   fixed_t recent_cpu = t->recent_cpu;
   fixed_t nice = t->nice;
-  fixed_t load_avg_2 = MUL_INT(load_avg, 2);
-  fixed_t coef = DIV_FIXED(load_avg_2, ADD_INT(load_avg_2, 1));
+  fixed_t load_avg_2 = MUL_INT(load_avg, 2);     //2 * load_avg
+  fixed_t coef = DIV_FIXED(load_avg_2, ADD_INT(load_avg_2, 1));     //(2 * load_avg) / (2 * load_avg + 1)
   t->recent_cpu = ADD_INT(MUL_FIXED(coef, recent_cpu), nice);
+  //recent_cpu = (2 * load_avg) / (2 * load_avg + 1) * recent_cpu + nice
 }
 
 void thread_update_load_avg(void){
