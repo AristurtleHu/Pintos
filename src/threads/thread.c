@@ -160,12 +160,14 @@ void thread_tick(void) {
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return();
 
+  // Update recent_cpu if the thread is not idle
   if (t != idle_thread) {
     t->recent_cpu = ADD_INT(t->recent_cpu, 1);
   }
 
   int ticks = timer_ticks();
 
+  // Update recent_cpu all threads after update load_avg
   if (thread_mlfqs && ticks % TIMER_FREQ == 0) {
     thread_update_load_avg();
     enum intr_level old_level = intr_disable();
@@ -173,6 +175,7 @@ void thread_tick(void) {
     intr_set_level(old_level);
   }
 
+  // Update priority of all threads for every 4 ticks
   if (thread_mlfqs && ticks % 4 == 0) {
     enum intr_level old_level = intr_disable();
     thread_foreach(thread_update_mlfqs_priority, NULL);
@@ -396,6 +399,7 @@ void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED) {
   if (t == idle_thread)
     return;
 
+  // priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
   t->priority = PRI_MAX - FIXED_TO_INT(DIV_INT(t->recent_cpu, 4)) - t->nice * 2;
 
   if (t->priority < PRI_MIN)
@@ -415,8 +419,12 @@ void thread_update_recent_cpu(struct thread *t, void *aux UNUSED) {
 
   fixed_t recent_cpu = t->recent_cpu;
   fixed_t nice = t->nice;
-  fixed_t load_avg_2 = MUL_INT(load_avg, 2);
-  fixed_t coef = DIV_FIXED(load_avg_2, ADD_INT(load_avg_2, 1));
+  fixed_t load_avg_2 = MUL_INT(load_avg, 2); // 2 * load_avg
+  fixed_t coef =
+      DIV_FIXED(load_avg_2,
+                ADD_INT(load_avg_2, 1)); // (2 * load_avg) / (2 * load_avg + 1)
+
+  // recent_cpu = (2 * load_avg) / (2 * load_avg + 1) * recent_cpu + nice
   t->recent_cpu = ADD_INT(MUL_FIXED(coef, recent_cpu), nice);
 }
 
