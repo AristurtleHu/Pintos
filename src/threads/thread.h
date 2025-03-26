@@ -148,6 +148,7 @@ void thread_set_priority(int);
 bool thread_heap_less(const heap_elem a, const heap_elem b);
 list_less_func thread_priority_less;
 void thread_update_priority(struct thread *t, void *aux UNUSED);
+void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED);
 
 int thread_get_nice(void);
 void thread_set_nice(int);

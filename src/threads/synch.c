@@ -96,7 +96,7 @@ bool sema_try_down(struct semaphore *sema) {
 }
 
 /* Up or "V" operation on a semaphore.  Increments SEMA's value
-   and wakes up one thread of those waiting for SEMA, if any.
+   and wakes up the thread with highest priority, if any.
 
    This function may be called from an interrupt handler. */
 void sema_up(struct semaphore *sema) {
@@ -105,7 +105,6 @@ void sema_up(struct semaphore *sema) {
   enum intr_level old_level = intr_disable();
 
   if (!list_empty(&sema->waiters)) {
-
     struct list_elem *thread =
         list_max(&sema->waiters, thread_priority_less, NULL);
 
@@ -175,24 +174,29 @@ void lock_init(struct lock *lock) {
   sema_init(&lock->semaphore, 1);
 }
 
+/* Compare two locks' priority
+   @return `True` if `a < b` */
 bool lock_priority_less(const struct list_elem *a, const struct list_elem *b,
                         void *aux UNUSED) {
   return list_entry(a, struct lock, elem)->priority_donate <
          list_entry(b, struct lock, elem)->priority_donate;
 }
 
-/* Donate priority. */
+/* Donate priority.
+   If exceed `DONATE_MAX_DEPTH`, then may occur a deadlock */
 void donate_priority(struct thread *t, int dep) {
-  if (dep > DONATE_MAX_DEPTH || t->lock_waiting == NULL)
+  struct lock *lock = t->lock_waiting;
+
+  if (dep > DONATE_MAX_DEPTH || lock == NULL)
     return;
 
-  if (t->lock_waiting->priority_donate < t->priority) {
-    t->lock_waiting->priority_donate = t->priority;
+  if (lock->priority_donate < t->priority) {
+    lock->priority_donate = t->priority;
 
-    if (t->lock_waiting->holder->priority < t->priority)
-      t->lock_waiting->holder->priority = t->priority;
+    if (lock->holder->priority < t->priority)
+      lock->holder->priority = t->priority;
 
-    donate_priority(t->lock_waiting->holder, dep + 1);
+    donate_priority(lock->holder, dep + 1);
   }
 }
 
@@ -212,31 +216,27 @@ void lock_acquire(struct lock *lock) {
   if (lock_try_acquire(lock))
     return;
 
-  // 1
+  // fail to acquire the lock
   enum intr_level old_level = intr_disable();
 
   struct thread *cur = thread_current();
   cur->lock_waiting = lock;
 
-  if(!thread_mlfqs){
+  if (!thread_mlfqs) {
     donate_priority(cur, 0);   // chain donation
-    heap_rebuild(&ready_heap); // rebuild the whole, O(n)
+    heap_rebuild(&ready_heap); // rebuild the whole heap, O(n)
   }
 
   intr_set_level(old_level);
-  // end
-
-  sema_down(&lock->semaphore); // already has intr_disable
-
-  // 2
+  sema_down(&lock->semaphore); // already has intr_disable inside it
   old_level = intr_disable();
 
+  // success to acquire the lock
   lock->holder = cur;
   cur->lock_waiting = NULL;
   list_push_back(&cur->locks, &lock->elem);
 
   intr_set_level(old_level);
-  // end
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -260,6 +260,7 @@ bool lock_try_acquire(struct lock *lock) {
 }
 
 /* Releases LOCK, which must be owned by the current thread.
+   Renew the priority of the current thread and the holder of the lock.
 
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
@@ -276,10 +277,11 @@ void lock_release(struct lock *lock) {
 
   intr_set_level(old_level);
 
-  if(thread_mlfqs)
+  if (thread_mlfqs)
     thread_update_mlfqs_priority(thread_current(), NULL);
   else
     thread_update_priority(thread_current(), NULL);
+
   sema_up(&lock->semaphore);
 }
 
@@ -298,6 +300,8 @@ struct semaphore_elem {
   struct semaphore semaphore; /* This semaphore. */
 };
 
+/* Compare two semaphores' priority
+   @return `True` if `a < b` */
 bool sema_priority_less(const struct list_elem *a, const struct list_elem *b,
                         void *aux UNUSED) {
   struct semaphore *sema_a =
@@ -367,7 +371,7 @@ void cond_wait(struct condition *cond, struct lock *lock) {
 }
 
 /* If any threads are waiting on COND (protected by LOCK), then
-   this function signals one of them to wake up from its wait.
+   this function signals the one with highest priority to wake up from its wait.
    LOCK must be held before calling this function.
 
    An interrupt handler cannot acquire a lock, so it does not
@@ -381,9 +385,9 @@ void cond_signal(struct condition *cond, struct lock *lock UNUSED) {
 
   if (!list_empty(&cond->waiters)) {
     struct list_elem *sema = list_max(&cond->waiters, sema_priority_less, NULL);
-    list_remove(sema);
 
     sema_up(&list_entry(sema, struct semaphore_elem, elem)->semaphore);
+    list_remove(sema);
   }
 }
 
