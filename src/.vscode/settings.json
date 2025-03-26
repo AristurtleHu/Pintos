@@ -6,6 +6,7 @@
         "utility": "c",
         "thread.h": "c",
         "heap.h": "c",
-        "malloc.h": "c"
+        "malloc.h": "c",
+        "type_traits": "c"
     }
 }

@@ -8,7 +8,7 @@ static void swap(heap_elem *a, heap_elem *b) {
   *b = t;
 }
 
-/* Initialize heap */
+/* Initialize heap (Max-heap) */
 void heap_init(struct heap *heap, heap_less_func *less) {
   ASSERT(heap != NULL);
 
