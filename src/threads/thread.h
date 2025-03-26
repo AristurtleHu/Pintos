@@ -120,6 +120,9 @@ struct thread {
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
+int max(const int a, const int b);
+int min(const int a, const int b);
+
 void thread_init(void);
 void thread_start(void);
 

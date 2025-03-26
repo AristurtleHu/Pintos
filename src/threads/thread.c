@@ -99,6 +99,14 @@ bool thread_priority_less(const struct list_elem *a, const struct list_elem *b,
          list_entry(b, struct thread, elem)->priority;
 }
 
+/* Compare two integers
+   @return maximum of a and b */
+int max(const int a, const int b) { return a > b ? a : b; }
+
+/* Compare two integers
+   @return minimum of a and b */
+int min(const int a, const int b) { return a < b ? a : b; }
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -359,7 +367,9 @@ void thread_foreach(thread_action_func *func, void *aux) {
   }
 }
 
-/* Sets the current thread's original priority to NEW_PRIORITY. */
+/* Sets the current thread's original priority to NEW_PRIORITY.
+  Thread holds the lock or has no relation with the lock.
+  Block threads will not enter this. */
 void thread_set_priority(int new_priority) {
   if (thread_mlfqs)
     return;
@@ -367,10 +377,10 @@ void thread_set_priority(int new_priority) {
   struct thread *cur = thread_current();
 
   cur->priority_original = new_priority;
+  cur->priority = max(cur->priority, new_priority);
 
-  /* Thread holds the lock or has no relation with the lock
-     Block threads will not enter this */
-  if (cur->priority < new_priority || list_empty(&cur->locks))
+  /* The situation of no relation with the lock, just change */
+  if (list_empty(&cur->locks))
     cur->priority = new_priority;
 
   thread_yield();
@@ -382,13 +392,12 @@ void thread_update_priority(struct thread *t, void *aux UNUSED) {
   int priority = t->priority_original; // original priority
 
   if (!list_empty(&t->locks)) {
-    int priority_donate =
+    int lock_priority =
         list_entry(list_max(&t->locks, lock_priority_less, NULL), struct lock,
                    elem)
-            ->priority_donate; // donation from other locks
+            ->priority; // donation from other locks
 
-    if (priority_donate > priority)
-      priority = priority_donate;
+    priority = max(priority, lock_priority);
   }
 
   t->priority = priority;
@@ -402,11 +411,8 @@ void thread_update_mlfqs_priority(struct thread *t, void *aux UNUSED) {
   // priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
   t->priority = PRI_MAX - FIXED_TO_INT(DIV_INT(t->recent_cpu, 4)) - t->nice * 2;
 
-  if (t->priority < PRI_MIN)
-    t->priority = PRI_MIN;
-
-  if (t->priority > PRI_MAX)
-    t->priority = PRI_MAX;
+  t->priority = max(PRI_MIN, t->priority);
+  t->priority = min(PRI_MAX, t->priority);
 }
 
 /* Returns the current thread's priority. */
@@ -447,10 +453,8 @@ void thread_set_nice(int nice UNUSED) {
   enum intr_level old_level = intr_disable();
 
   struct thread *t = thread_current();
-  if (nice > NICE_MAX)
-    nice = NICE_MAX;
-  if (nice < NICE_MIN)
-    nice = NICE_MIN;
+  nice = min(NICE_MAX, nice);
+  nice = max(NICE_MIN, nice);
 
   t->nice = nice;
   thread_update_mlfqs_priority(t, NULL);

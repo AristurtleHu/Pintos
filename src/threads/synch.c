@@ -170,7 +170,7 @@ void lock_init(struct lock *lock) {
   ASSERT(lock != NULL);
 
   lock->holder = NULL;
-  lock->priority_donate = PRI_MIN;
+  lock->priority = PRI_MIN;
   sema_init(&lock->semaphore, 1);
 }
 
@@ -178,8 +178,8 @@ void lock_init(struct lock *lock) {
    @return `True` if `a < b` */
 bool lock_priority_less(const struct list_elem *a, const struct list_elem *b,
                         void *aux UNUSED) {
-  return list_entry(a, struct lock, elem)->priority_donate <
-         list_entry(b, struct lock, elem)->priority_donate;
+  return list_entry(a, struct lock, elem)->priority <
+         list_entry(b, struct lock, elem)->priority;
 }
 
 /* Donate priority.
@@ -190,11 +190,11 @@ void donate_priority(struct thread *t, int dep) {
   if (dep > DONATE_MAX_DEPTH || lock == NULL)
     return;
 
-  if (lock->priority_donate < t->priority) {
-    lock->priority_donate = t->priority;
-
-    if (lock->holder->priority < t->priority)
-      lock->holder->priority = t->priority;
+  if (lock->priority < t->priority) { // Need donation
+    // Donate to lock
+    lock->priority = t->priority;
+    // Donate to lock's holder
+    lock->holder->priority = max(t->priority, lock->holder->priority);
 
     donate_priority(lock->holder, dep + 1);
   }
@@ -272,7 +272,7 @@ void lock_release(struct lock *lock) {
   enum intr_level old_level = intr_disable();
 
   lock->holder = NULL;
-  lock->priority_donate = PRI_MIN;
+  lock->priority = PRI_MIN;
   list_remove(&lock->elem);
 
   intr_set_level(old_level);
