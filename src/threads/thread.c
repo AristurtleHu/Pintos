@@ -188,6 +188,9 @@ void thread_tick(void) {
     enum intr_level old_level = intr_disable();
     thread_foreach(thread_update_mlfqs_priority, NULL);
     intr_set_level(old_level);
+
+    if(heap_size(&ready_heap) > 1)
+      heap_rebuild(&ready_heap);
   }
 }
 

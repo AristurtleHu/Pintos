@@ -224,7 +224,9 @@ void lock_acquire(struct lock *lock) {
 
   if (!thread_mlfqs) {
     donate_priority(cur, 0);   // chain donation
-    heap_rebuild(&ready_heap); // rebuild the whole heap, O(n)
+
+    if(heap_size(&ready_heap) > 1)
+      heap_rebuild(&ready_heap); // rebuild the whole heap, O(n)
   }
 
   intr_set_level(old_level);
