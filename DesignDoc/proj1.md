@@ -130,7 +130,7 @@ struct lock {
 ```
 
 Donation:
-thread `->` lock `->` thread 
+thread `->` lock `->` thread
 
 `priority_original` used to recover after donation.
 
@@ -159,9 +159,11 @@ void donate_priority(struct thread *t, int dep) {
 ```
 
 Donation:
+
 - thread `->` lock_waiting `==` lock `->` holder `==` thread `->` lock_waiting `==` ...
 
 Example:
+
 ```c
 1)  | low |         
 // a thread with low priority holds a lock
@@ -203,15 +205,16 @@ Nested donation occurs when a chain of locks and threads is involved:
 
 - Thread H (high priority) needs lock L1 held by thread M (medium priority)
 - Thread M is waiting for lock L2 held by thread L (low priority)
- 
+
 Priority donation cascades through the chain:
+
 1. H donates to M (raising M's priority to H's level)
 2. M's new priority is then donated to L (raising L's priority to H's level)
 
 This ensures that thread L runs at the highest priority of any thread waiting on it directly or indirectly, preventing priority inversion across lock chains.
 
 > **B5:** Describe the sequence of events when `lock_release()` is called on a lock that a higher-priority thread is waiting for.
-> 
+
 The lock's holder field is set to NULL.
 
 The donated priority of the lock is reset to `PRI_MIN`.
@@ -251,7 +254,6 @@ We chose this design for several important reasons:
 
 We considered a simpler approach without tracking lock ownership, where we would just temporarily boost priorities but not propagate them through chains. This would be easier to implement but would fail to address nested priority inversion scenarios, where multiple locks create a dependency chain. Our current design robustly handles these complex cases while maintaining reasonable performance characteristics.
 
-
 ---
 
 ## Advanced Scheduler
@@ -261,13 +263,14 @@ We considered a simpler approach without tracking lock ownership, where we would
 > **C1:** Copy here the declaration of each new or changed `struct` or struct member, global or static variable, `typedef`, or enumeration. Identify the purpose of each in 25 words or less.
 
 Add to thread.c:
+
 - `typedef int32_t fixed_t`, This defines a new type fixed_t as a 32-bit signed integer (int32_t).
 - `fixed_t load_avg`, It reflects the overall system load and is used to adjust recent_cpu values for all threads.
 
 Add to struct thread:
+
 - `fixed_t recent_cpu` tracks how much CPU time a thread has used "recently".
 - `int nice`, It is a user-controllable parameter that influences thread priority.
-
 
 ### Algorithms
 
@@ -305,7 +308,6 @@ Advantage:
 
  The formula `recent_cpu = (2 * load_avg) / (2 * load_avg + 1) * recent_cpu + nice` applies exponential decay to historical CPU time, focusing more on recent behavior. It can imporve the fairness.
 
-
 Disadvantage:
 load_avg is updated only once per second, potentially failing to capture transient load fluctuations promptly.
 
@@ -316,13 +318,11 @@ Change the update frequency of load_avg from once per second to every tick, usin
 
 Maybe just ignore the temporary wrong of ready_heap.
 
-
 ---
 
 > **C6:** The assignment explains arithmetic for fixed-point math in detail, but it leaves it open to you to implement it. Why did you decide to implement it the way you did? If you created an abstraction layer for fixed-point math (i.e., an abstract data type and/or a set of functions or macros to manipulate fixed-point numbers), why did you do so? If not, why not?
 
 Yes, we use macros to finish this part. Because, macros eliminate function call, hides low-level details (bit shifts, scaling) behind intuitive macros. To avoids memory and overhead costs of objects/structs; fixed-point math is inherently integer-based. This approach balances efficiency, clarity, and flexibility, leveraging C’s low-level features while providing a safe, scalable abstraction for fixed-point arithmetic.
-
 
 ---
 
@@ -331,4 +331,3 @@ Yes, we use macros to finish this part. Because, macros eliminate function call,
 > Do you have any suggestions for the TAs to more effectively assist students, either for future quarters or the remaining projects? Any other comments?
 
 None.
-
