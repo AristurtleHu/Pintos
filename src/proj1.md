@@ -43,6 +43,7 @@ struct heap {
   heap_less_func *less;           /* Heap compare function. */
 };
 ```
+
 1. For each thread, add a wake_time to record when to awake it. 
 
 2. Generate a heap to sort sleeping threads by wake_time and wake up then when time interrupts.
@@ -68,6 +69,7 @@ enum intr_level old_level = intr_disable();
 // critical section
 intr_set_level(old_level);
 ```
+
 When interrupts are disabled, the CPU cannot be preempted to run another thread, effectively creating an atomic section of code.
 
 > **A5:** How are race conditions avoided when a timer interrupt occurs during a call to `timer_sleep()`?
@@ -77,6 +79,7 @@ enum intr_level old_level = intr_disable();
 // critical section
 intr_set_level(old_level);
 ```
+
 The interrupt disabling ensures all these operations are atomic from the perspective of the timer interrupt handler.
 
 ### Rationale
@@ -258,23 +261,17 @@ We considered a simpler approach without tracking lock ownership, where we would
 > **C1:** Copy here the declaration of each new or changed `struct` or struct member, global or static variable, `typedef`, or enumeration. Identify the purpose of each in 25 words or less.
 
 Add to thread.c:
-
-`typedef int32_t fixed_t`, This defines a new type fixed_t as a 32-bit signed integer (int32_t).
-
-`fixed_t load_avg`, It reflects the overall system load and is used to adjust recent_cpu values for all threads.
+- `typedef int32_t fixed_t`, This defines a new type fixed_t as a 32-bit signed integer (int32_t).
+- `fixed_t load_avg`, It reflects the overall system load and is used to adjust recent_cpu values for all threads.
 
 Add to struct thread:
-
-`fixed_t recent_cpu` tracks how much CPU time a thread has used "recently".
-
-`int nice`, It is a user-controllable parameter that influences thread priority.
+- `fixed_t recent_cpu` tracks how much CPU time a thread has used "recently".
+- `int nice`, It is a user-controllable parameter that influences thread priority.
 
 
 ### Algorithms
 
 > **C2:** Suppose threads A, B, and C have nice values 0, 1, and 2. Each has a `recent_cpu` value of 0. Fill in the table below showing the scheduling decision and the priority and `recent_cpu` values for each thread after each given number of timer ticks:
-
-*Fill in the table.*
 
 | Timer Ticks | recent_cpu A | recent_cpu B | recent_cpu C | Priority A | Priority B | Priority C | Thread to Run |
 | ----------- | ------------ | ------------ | ------------ | ---------- | ---------- | ---------- | ------------- |
@@ -334,3 +331,4 @@ Yes, we use macros to finish this part. Because, macros eliminate function call,
 > Do you have any suggestions for the TAs to more effectively assist students, either for future quarters or the remaining projects? Any other comments?
 
 None.
+
