@@ -195,7 +195,18 @@ Easy to track the donation and find the highest priority.
 
 > **C1:** Copy here the declaration of each new or changed `struct` or struct member, global or static variable, `typedef`, or enumeration. Identify the purpose of each in 25 words or less.
 
-*Your answer here.*
+Add to thread.c:
+
+`typedef int32_t fixed_t`, This defines a new type fixed_t as a 32-bit signed integer (int32_t).
+
+`fixed_t load_avg`，It reflects the overall system load and is used to adjust recent_cpu values for all threads.
+
+Add to struct thread:
+
+`fixed_t recent_cpu` tracks how much CPU time a thread has used "recently."
+
+`int nice`，It is a user-controllable parameter that influences thread priority.
+
 
 ### Algorithms
 
@@ -218,23 +229,39 @@ Easy to track the donation and find the highest priority.
 
 > **C3:** Did any ambiguities in the scheduler specification make values in the table uncertain? If so, what rule did you use to resolve them? Does this match the behavior of your scheduler?
 
-*Your answer here.*
+Yes, there are some thread that has the same priority. We just excute those thread in FIFO manner.
+It is match, because in thread_yield we push current thread to the back of ready-heap. And we will rebuild the 
+heap, only the previous thread priority is less than next thread, they will swap each other.
 
 > **C4:** How is the way you divided the cost of scheduling between code inside and outside interrupt context likely to affect performance?
 
-*Your answer here.*
+Actually, the main part of the code was implemented in thread_ticks, there is a heap_rebuild when the priority update <O(n)>, and we get the max priority faster<O(log(n))>. In our algorithm, it is unavoidable to do it. But we believe we have tried to reduce the cost. 
 
 ### Rationale
 
 > **C5:** Briefly critique your design, pointing out advantages and disadvantages in your design choices. If you were to have extra time to work on this part of the project, how might you choose to refine or improve your design?
 
-*Your answer here.*
+Advantage:
+ Through dynamic adjustments of recent_cpu and nice values, the system can automatically distinguish between CPU-bound and I/O-bound threads, ensuring that the former's priority gradually decreases while the latter quickly regains CPU access.
+
+ The formula recent_cpu = (2*load_avg)/(2*load_avg+1) * recent_cpu + nice applies exponential decay to historical CPU time, focusing more on recent behavior. It can imporve the fairness.
+
+
+Disadvantage:
+load_avg is updated only once per second, potentially failing to capture transient load fluctuations promptly.
+
+And updating the cpu_recent and priority is <O(n)>, i do not know if the mlfqs is good for a system with many threads.
+
+Improvement:
+Change the update frequency of load_avg from once per second to every tick, using a sliding window average.
+
 
 ---
 
 > **C6:** The assignment explains arithmetic for fixed-point math in detail, but it leaves it open to you to implement it. Why did you decide to implement it the way you did? If you created an abstraction layer for fixed-point math (i.e., an abstract data type and/or a set of functions or macros to manipulate fixed-point numbers), why did you do so? If not, why not?
 
-*Your answer here.*
+Yes, we use macros to finish this part. Beccause, macros eliminate function call, hides low-level details (bit shifts, scaling) behind intuitive macros.To avoids memory and overhead costs of objects/structs; fixed-point math is inherently integer-based. This approach balances efficiency, clarity, and flexibility, leveraging C’s low-level features while providing a safe, scalable abstraction for fixed-point arithmetic.
+
 
 ---
 
