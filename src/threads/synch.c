@@ -223,9 +223,9 @@ void lock_acquire(struct lock *lock) {
   cur->lock_waiting = lock;
 
   if (!thread_mlfqs) {
-    donate_priority(cur, 0);   // chain donation
+    donate_priority(cur, 0); // chain donation
 
-    if(heap_size(&ready_heap) > 1)
+    if (heap_size(&ready_heap) > 1)
       heap_rebuild(&ready_heap); // rebuild the whole heap, O(n)
   }
 
@@ -279,9 +279,7 @@ void lock_release(struct lock *lock) {
 
   intr_set_level(old_level);
 
-  if (thread_mlfqs)
-    thread_update_mlfqs_priority(thread_current(), NULL);
-  else
+  if (!thread_mlfqs)
     thread_update_priority(thread_current(), NULL);
 
   sema_up(&lock->semaphore);
