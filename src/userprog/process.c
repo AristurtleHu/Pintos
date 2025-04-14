@@ -45,10 +45,10 @@ tid_t process_execute(const char *file_name) {
   }
   strlcpy(fn_copy1, file_name, PGSIZE);
 
-  /* Create a new thread to execute FILE_NAME. */
   char *save_ptr;
   char *name = strtok_r(fn_copy1, " ", &save_ptr);
 
+  /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(name, PRI_DEFAULT, start_process, fn_copy0);
   palloc_free_page(fn_copy1);
 
