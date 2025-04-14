@@ -26,20 +26,35 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t process_execute(const char *file_name) {
-  char *fn_copy;
+  char *fn_copy0, *fn_copy1;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page(0);
-  if (fn_copy == NULL)
+  fn_copy0 = palloc_get_page(0);
+  if (fn_copy0 == NULL)
     return TID_ERROR;
-  strlcpy(fn_copy, file_name, PGSIZE);
+  strlcpy(fn_copy0, file_name, PGSIZE);
+
+  /* Make another copy of FILE_NAME.
+     strtok_r will modify the char *. */
+  fn_copy1 = palloc_get_page(0);
+  if (fn_copy1 == NULL) {
+    palloc_free_page(fn_copy0);
+    return TID_ERROR;
+  }
+  strlcpy(fn_copy1, file_name, PGSIZE);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
+  char *save_ptr;
+  char *name = strtok_r(fn_copy1, " ", &save_ptr);
+
+  tid = thread_create(name, PRI_DEFAULT, start_process, fn_copy0);
+  palloc_free_page(fn_copy1);
+
   if (tid == TID_ERROR)
-    palloc_free_page(fn_copy);
+    palloc_free_page(fn_copy1);
+
   return tid;
 }
 
@@ -55,7 +70,42 @@ static void start_process(void *file_name_) {
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load(file_name, &if_.eip, &if_.esp);
+
+  char *save_ptr;
+  char *name = strtok_r(file_name, " ", &save_ptr);
+  success = load(name, &if_.eip, &if_.esp);
+
+  if (success) {
+    int argc = 0;
+    int argv[128]; /* The address of argv[i] */
+
+    /* argv[i] */
+    for (char *arg = name; arg != NULL; arg = strtok_r(NULL, " ", &save_ptr)) {
+      size_t size = strlen(arg) + 1;
+      if_.esp -= size;
+      memcpy(if_.esp, arg, size);
+      argv[argc++] = (int)if_.esp;
+    }
+
+    /* align the stack to 4 bytes */
+    if_.esp -= (int)if_.esp % 4;
+    *(int *)if_.esp = 0;
+
+    /* address of argv[i] */
+    memcpy(if_.esp, argv, sizeof(int) * argc);
+
+    /* argv address */
+    if_.esp -= 4;
+    *(int *)if_.esp = (int)if_.esp + 4;
+
+    /* argc */
+    if_.esp -= 4;
+    *(int *)if_.esp = argc;
+
+    /* Return address */
+    if_.esp -= 4;
+    *(int *)if_.esp = 0;
+  }
 
   /* If load failed, quit. */
   palloc_free_page(file_name);
