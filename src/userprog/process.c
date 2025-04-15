@@ -77,14 +77,14 @@ static void start_process(void *file_name_) {
 
   if (success) {
     int argc = 0;
-    int argv[128]; /* The address of argv[i] */
+    char *argv[128]; /* The address of argv[i] */
 
     /* argv[i] */
     for (char *arg = name; arg != NULL; arg = strtok_r(NULL, " ", &save_ptr)) {
       size_t size = strlen(arg) + 1;
       if_.esp -= size;
       strlcpy(if_.esp, arg, size);
-      argv[argc++] = (int)if_.esp;
+      argv[argc++] = (char *)if_.esp;
     }
 
     /* align the stack to 4 bytes */
@@ -94,10 +94,8 @@ static void start_process(void *file_name_) {
     *(int *)if_.esp = 0;
 
     /* address of argv[i] (inverse order to fit the upper order) */
-    for(int i = argc - 1; i >= 0; i--) {
-      if_.esp -= 4;
-      *(int *)if_.esp = argv[i];
-    }
+    if_.esp -= 4 * argc;
+    memcpy(if_.esp, argv, sizeof(char *) * argc);
 
     /* argv address */
     if_.esp -= 4;
