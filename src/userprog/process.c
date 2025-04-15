@@ -83,7 +83,7 @@ static void start_process(void *file_name_) {
     for (char *arg = name; arg != NULL; arg = strtok_r(NULL, " ", &save_ptr)) {
       size_t size = strlen(arg) + 1;
       if_.esp -= size;
-      memcpy(if_.esp, arg, size);
+      strlcpy(if_.esp, arg, size);
       argv[argc++] = (int)if_.esp;
     }
 
