@@ -3,6 +3,7 @@
 #include "userprog/syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include <stdio.h>
 #include <syscall-nr.h>
@@ -36,8 +37,6 @@ void check_address(const void *addr) {
       thread_exit();
     }
   }
-
-  return ptr;
 }
 
 static int get_user(const uint8_t *uaddr) {
