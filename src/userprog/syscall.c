@@ -1,3 +1,5 @@
+#define USERPROG // TODO: Remove this line when you finish the project
+
 #include "userprog/syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"

@@ -1,3 +1,5 @@
+#define USERPROG // TODO: Remove this line when you finish the project
+
 #include "userprog/process.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
