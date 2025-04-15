@@ -95,6 +95,7 @@ struct thread {
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
   uint32_t *pagedir;     /* Page directory. */
+  int exit_code;         /* Process exit code */
   struct list children;  /* List of child processes. */
   struct thread *parent; /* Parent process. */
   struct semaphore sema; /* Semaphore for process exit. */
