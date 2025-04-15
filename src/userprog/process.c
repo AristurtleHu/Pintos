@@ -90,6 +90,8 @@ static void start_process(void *file_name_) {
     /* align the stack to 4 bytes */
     if_.esp -= (int)if_.esp % 4;
     *(int *)if_.esp = 0;
+    if_.esp -= 4;
+    *(int *)if_.esp = 0;
 
     /* address of argv[i] (inverse order to fit the upper order) */
     for(int i = argc - 1; i >= 0; i--) {
