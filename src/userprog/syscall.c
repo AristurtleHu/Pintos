@@ -1,6 +1,9 @@
 #define USERPROG // TODO: Remove this line when you finish the project
 
 #include "userprog/syscall.h"
+#include "devices/shutdown.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
