@@ -91,8 +91,11 @@ static void start_process(void *file_name_) {
     if_.esp -= (int)if_.esp % 4;
     *(int *)if_.esp = 0;
 
-    /* address of argv[i] */
-    memcpy(if_.esp, argv, sizeof(int) * argc);
+    /* address of argv[i] (inverse order to fit the upper order) */
+    for(int i = argc - 1; i >= 0; i--) {
+      if_.esp -= 4;
+      *(int *)if_.esp = argv[i];
+    }
 
     /* argv address */
     if_.esp -= 4;
