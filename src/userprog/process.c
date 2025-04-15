@@ -6,6 +6,7 @@
 #include "threads/init.h"
 #include "threads/interrupt.h"
 #include "threads/palloc.h"
+#include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/gdt.h"
@@ -110,10 +111,14 @@ static void start_process(void *file_name_) {
     *(int *)if_.esp = 0;
   }
 
+  struct thread *cur = thread_current();
+
   /* If load failed, quit. */
   palloc_free_page(file_name);
-  if (!success)
+  if (!success) {
+    cur->exit_code = -1;
     thread_exit();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -140,6 +145,8 @@ int process_wait(tid_t child_tid UNUSED) { return -1; }
 void process_exit(void) {
   struct thread *cur = thread_current();
   uint32_t *pd;
+
+  printf("%s: exit(%d)\n", cur->name, cur->exit_code);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
