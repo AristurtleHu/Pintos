@@ -5,13 +5,12 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
-#include "threads/synch.h"
 #include <stdio.h>
 #include <syscall-nr.h>
-
 
 static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);
@@ -28,7 +27,19 @@ static int write(int, const void *, unsigned);
 static void seek(int, unsigned);
 static unsigned tell(int);
 static void close(int);
-static struct thread_file *find_file(int fd);
+
+static struct thread_file *find_file(int fd) {
+  struct thread_file *file = NULL;
+  struct list_elem *elem;
+  struct list *f = &thread_current()->files;
+  for (elem = list_begin(f); elem != list_end(f); elem = list_next(elem)) {
+    file = list_entry(elem, struct thread_file, elem);
+    if (file->fd == fd) {
+      return file;
+    }
+  }
+  return NULL;
+}
 
 void syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
@@ -193,21 +204,20 @@ static void exit(int status) {
     may end up interleaved on the console, confusing both human readers and
     the grading scripts. */
 static int write(int fd, const void *buffer, unsigned size) {
-  if(fd == STDOUT) {
+  if (fd == STDOUT) {
     putbuf(buffer, size);
     return size;
-  }
-  else {
-    struct thread_file *file = find_file(fd);
-    if(file == NULL) {
+  } else {
+    struct thread_file *thread_file = find_file(fd);
+    if (thread_file == NULL)
       return 0;
-    }
+
     acquire_file_lock();
-    int bytes_written = file_write(file->file, buffer, size);
+    int bytes_written = file_write(thread_file->file, buffer, size);
     release_file_lock();
+
     return bytes_written;
   }
-  
 }
 
 /* Runs the executable whose name is given in CMD_LINE,
@@ -331,16 +341,3 @@ static unsigned tell(int fd) {}
     closes all its open file descriptors, as if by calling this function
     for each one. */
 static void close(int fd) {}
-
-static struct thread_file * find_file(int fd) {
-  struct thread_file *file = NULL;
-  struct list_elem *elem;
-  struct list *f = &thread_current()->files;
-  for(elem = list_begin(f); elem != list_end(f); elem = list_next(elem)) {
-    file = list_entry(elem, struct thread_file, elem);
-    if(file->fd == fd) {
-      return file;
-    }
-  }
-  return NULL;
-}

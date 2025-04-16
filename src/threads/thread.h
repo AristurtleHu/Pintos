@@ -14,11 +14,8 @@ enum thread_status {
   THREAD_DYING    /* About to be destroyed. */
 };
 
-enum fd{
-   STDIN,
-   STDOUT,
-   STDERR 
-};
+/* File descriptor */
+enum fd { STDIN, STDOUT, STDERR };
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -105,8 +102,8 @@ struct thread {
   struct list children;  /* List of child processes. */
   struct thread *parent; /* Parent process. */
   struct semaphore sema; /* Semaphore for process exit. */
-  struct list files;  /* List of open files. */
-  enum fd fd; /* File descriptor. */
+  struct list files;     /* List of open files. */
+  int fd;                /* File descriptor. */
 #endif
 
   /* Owned by thread.c. */
@@ -114,9 +111,9 @@ struct thread {
 };
 
 struct thread_file {
-   int fd; /* File descriptor */
-   struct file *file; /* File pointer */
-   struct list_elem elem; /* List element. */
+  int fd;                /* File descriptor */
+  struct file *file;     /* File pointer */
+  struct list_elem elem; /* List element. */
 };
 
 /* If false (default), use round-robin scheduler.

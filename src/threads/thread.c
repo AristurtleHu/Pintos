@@ -38,7 +38,7 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* Lock used by file operations. */
-static struct lock file_lock; 
+static struct lock file_lock;
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
   void *eip;             /* Return address. */
@@ -406,11 +406,12 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  //system call
+#ifdef USERPROG
   list_init(&t->children);
   list_init(&t->files);
   sema_init(&t->sema, 0);
   t->exit_code = UINT32_MAX;
+#endif
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
@@ -516,12 +517,9 @@ static tid_t allocate_tid(void) {
   return tid;
 }
 
-void acquire_file_lock(void) {
-  lock_acquire(&file_lock);
-}
-void release_file_lock(void) {
-  lock_release(&file_lock);
-}
+void acquire_file_lock(void) { lock_acquire(&file_lock); }
+void release_file_lock(void) { lock_release(&file_lock); }
+
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
