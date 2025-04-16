@@ -230,7 +230,9 @@ static int write(int fd, const void *buffer, unsigned size) {
     successfully loaded its executable.
 
     Use appropriate synchronization to ensure this. */
-static tid_t exec(const char *cmd_line) {}
+static tid_t exec(const char *cmd_line) {
+  return process_execute(cmd_line);
+}
 
 /* Waits for a child process PID and retrieves the
     child’s exit status.
