@@ -1,6 +1,7 @@
 #define USERPROG // TODO: Remove this line when you finish the project
 
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -47,28 +48,22 @@ void syscall_init(void) {
 
 static void *check_address(const void *addr) {
   // Check if the address is within the user address space
-  if (!is_user_vaddr(addr)) {
-    thread_current()->exit_code = -1;
-    thread_exit();
-  }
+  if (!is_user_vaddr(addr))
+    exit(-1);
 
   // Check if the address is not NULL
   void *ptr = pagedir_get_page(thread_current()->pagedir, addr);
-  if (!ptr) {
-    thread_current()->exit_code = -1;
-    thread_exit();
-  }
+  if (!ptr) 
+    exit(-1);
 
   uint8_t *check_by = (uint8_t *)addr;
 
   for (uint8_t i = 0; i < 4; i++) {
-    if (get_user(check_by + i) == -1) {
-      thread_current()->exit_code = -1;
-      thread_exit();
-    }
+    if (get_user(check_by + i) == -1)
+      exit(-1);
   }
 
-  return addr;
+  return ptr;
 }
 
 static int get_user(const uint8_t *uaddr) {
@@ -204,6 +199,8 @@ static void exit(int status) {
     may end up interleaved on the console, confusing both human readers and
     the grading scripts. */
 static int write(int fd, const void *buffer, unsigned size) {
+  check_address(buffer + size - 1);
+
   if (fd == STDOUT) {
     putbuf(buffer, size);
     return size;
