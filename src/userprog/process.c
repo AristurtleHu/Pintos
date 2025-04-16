@@ -156,9 +156,10 @@ void process_exit(void) {
 
   struct list_elem *file;
   struct list *files = &thread_current()->files;
-  while(!list_empty(files)) {
+  while (!list_empty(files)) {
     file = list_pop_front(files);
-    struct thread_file *thread_file = list_entry(file, struct thread_file, elem);
+    struct thread_file *thread_file =
+        list_entry(file, struct thread_file, elem);
     acquire_file_lock();
     file_close(thread_file->file);
     release_file_lock();

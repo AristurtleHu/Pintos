@@ -1,4 +1,6 @@
 #include "threads/thread.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -7,14 +9,12 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "filesys/file.h"
-#include "filesys/filesys.h"
 #include <debug.h>
+#include <list.h>
 #include <random.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#include <list.h>
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -416,11 +416,11 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->files);
   sema_init(&t->sema, 0);
   t->exit_code = 0;
-  if(t == initial_thread)
+  if (t == initial_thread)
     t->parent = NULL;
-  else 
+  else
     t->parent = thread_current();
-  
+
 #endif
 
   old_level = intr_disable();

@@ -1,7 +1,6 @@
 #define USERPROG // TODO: Remove this line when you finish the project
 
 #include "userprog/syscall.h"
-#include "userprog/process.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -10,6 +9,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
+#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 
@@ -53,7 +53,7 @@ static void *check_address(const void *addr) {
 
   // Check if the address is not NULL
   void *ptr = pagedir_get_page(thread_current()->pagedir, addr);
-  if (!ptr) 
+  if (!ptr)
     exit(-1);
 
   uint8_t *check_by = (uint8_t *)addr;
@@ -227,9 +227,7 @@ static int write(int fd, const void *buffer, unsigned size) {
     successfully loaded its executable.
 
     Use appropriate synchronization to ensure this. */
-static tid_t exec(const char *cmd_line) {
-  return process_execute(cmd_line);
-}
+static tid_t exec(const char *cmd_line) { return process_execute(cmd_line); }
 
 /* Waits for a child process PID and retrieves the
     child’s exit status.
