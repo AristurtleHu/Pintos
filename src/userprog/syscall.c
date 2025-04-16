@@ -279,12 +279,22 @@ static int wait(tid_t tid) {}
     Returns true if successful, false otherwise. Creating a new file
     does not open it: opening the new file is a separate operation which
     would require an open system call. */
-static bool create(const char *file, unsigned initial_size) {}
+static bool create(const char *file, unsigned initial_size) {
+  acquire_file_lock();
+  bool success = filesys_create(file, initial_size);
+  release_file_lock();
+  return success;
+}
 
 /* Deletes the file called FILE. Returns true if successful, false
     otherwise. A file may be removed regardless of whether it is open
     or closed, and removing an open file does not close it. */
-static bool remove(const char *file) {}
+static bool remove(const char *file) {
+  acquire_file_lock();
+  bool success = filesys_remove(file);
+  release_file_lock();
+  return success;
+}
 
 /* Opens the file called FILE. Returns a nonnegative integer handle
     called a “file descriptor” (fd), or -1 if the file could not be
@@ -304,7 +314,19 @@ static bool remove(const char *file) {}
     descriptor. Different file descriptors for a single file are closed
     independently in separate calls to close and they do not share a
     file position. */
-static int open(const char *file) {}
+static int open(const char *file) {
+  acquire_file_lock();
+  struct file *file_open = filesys_open(file);
+  release_file_lock();
+  if(file_open == NULL)
+    return -1;
+  struct thread *th = thread_current();
+  struct thread_file *thread_file = malloc(sizeof(struct thread_file));
+  thread_file->fd = th->next_fd++;
+  thread_file->file = file_open;
+  list_push_back(&th->files, &thread_file->elem);
+  return thread_file->fd;
+}
 
 /* Returns the size, in bytes, of the file open as FD. */
 static int filesize(int fd) {}
