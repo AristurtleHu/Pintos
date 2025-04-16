@@ -112,10 +112,12 @@ static void start_process(void *file_name_) {
 
     /* Return address */
     if_.esp -= 4;
-    *(int *)if_.esp = NULL;
+    *(int *)if_.esp = 0;
   }
 
   struct thread *cur = thread_current();
+
+  sema_up(&cur->parent->sema);
 
   /* If load failed, quit. */
   palloc_free_page(file_name);
@@ -151,6 +153,18 @@ void process_exit(void) {
   uint32_t *pd;
 
   printf("%s: exit(%d)\n", cur->name, cur->exit_code);
+
+  struct list_elem *file;
+  struct list *files = &thread_current()->files;
+  while(!list_empty(files)) {
+    file = list_pop_front(files);
+    struct thread_file *thread_file = list_entry(file, struct thread_file, elem);
+    acquire_file_lock();
+    file_close(thread_file->file);
+    release_file_lock();
+    list_remove(file);
+    free(thread_file);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
