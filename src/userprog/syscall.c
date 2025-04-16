@@ -28,6 +28,7 @@ static int write(int, const void *, unsigned);
 static void seek(int, unsigned);
 static unsigned tell(int);
 static void close(int);
+static struct thread_file *find_file(int fd);
 
 void syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
@@ -196,6 +197,17 @@ static int write(int fd, const void *buffer, unsigned size) {
     putbuf(buffer, size);
     return size;
   }
+  else {
+    struct thread_file *file = find_file(fd);
+    if(file == NULL) {
+      return 0;
+    }
+    acquire_file_lock();
+    int bytes_written = file_write(file->file, buffer, size);
+    release_file_lock();
+    return bytes_written;
+  }
+  
 }
 
 /* Runs the executable whose name is given in CMD_LINE,
@@ -319,3 +331,16 @@ static unsigned tell(int fd) {}
     closes all its open file descriptors, as if by calling this function
     for each one. */
 static void close(int fd) {}
+
+static struct thread_file * find_file(int fd) {
+  struct thread_file *file = NULL;
+  struct list_elem *elem;
+  struct list *f = &thread_current()->files;
+  for(elem = list_begin(f); elem != list_end(f); elem = list_next(elem)) {
+    file = list_entry(elem, struct thread_file, elem);
+    if(file->fd == fd) {
+      return file;
+    }
+  }
+  return NULL;
+}
