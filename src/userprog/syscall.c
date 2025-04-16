@@ -8,8 +8,10 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
+#include "threads/synch.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+
 
 static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);
@@ -168,7 +170,10 @@ static void halt(void) { shutdown_power_off(); }
     If the process's parent waits for it (see below), this is the status that
     will be returned. Conventionally, a status of 0 indicates success and
     nonzero values indicate errors. */
-static void exit(int status) {}
+static void exit(int status) {
+  thread_current()->exit_code = status;
+  thread_exit();
+}
 
 /* Writes SIZE bytes from buffer to the open file FD. Returns the
     number of bytes actually written, which may be less than SIZE if
@@ -186,7 +191,12 @@ static void exit(int status) {}
     larger buffers.) Otherwise, lines of text output by different processes
     may end up interleaved on the console, confusing both human readers and
     the grading scripts. */
-static int write(int fd, const void *buffer, unsigned size) {}
+static int write(int fd, const void *buffer, unsigned size) {
+  if(fd == STDOUT) {
+    putbuf(buffer, size);
+    return size;
+  }
+}
 
 /* Runs the executable whose name is given in CMD_LINE,
     passing any given arguments, and returns the new
