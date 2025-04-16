@@ -57,6 +57,8 @@ tid_t process_execute(const char *file_name) {
 
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy0);
+  else
+    sema_down(&thread_current()->sema);
 
   return tid;
 }
@@ -80,7 +82,7 @@ static void start_process(void *file_name_) {
 
   if (success) {
     int argc = 0;
-    char *argv[128]; /* The address of argv[i] */
+    char *argv[130]; /* The address of argv[i] */
 
     /* argv[i] */
     for (char *arg = name; arg != NULL; arg = strtok_r(NULL, " ", &save_ptr)) {
@@ -90,15 +92,13 @@ static void start_process(void *file_name_) {
       argv[argc++] = (char *)if_.esp;
     }
 
-    /* align the stack to 4 bytes */
-    if_.esp -= (int)if_.esp % 4;
-    *(int *)if_.esp = 0;
-    if_.esp -= 4;
-    *(int *)if_.esp = 0;
+    /* Align the stack pointer to 4 bytes */
+    if_.esp -= (int)if_.esp & 3;
 
     /* address of argv[i] (inverse order to fit the upper order) */
-    if_.esp -= 4 * argc;
-    memcpy(if_.esp, argv, sizeof(char *) * argc);
+    argv[argc] = NULL;
+    if_.esp -= 4 * (argc + 1);
+    memcpy(if_.esp, argv, sizeof(char *) * (argc + 1));
 
     /* argv address */
     if_.esp -= 4;
@@ -110,7 +110,7 @@ static void start_process(void *file_name_) {
 
     /* Return address */
     if_.esp -= 4;
-    *(int *)if_.esp = 0;
+    *(int *)if_.esp = NULL;
   }
 
   struct thread *cur = thread_current();
