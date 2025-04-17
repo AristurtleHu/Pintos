@@ -200,7 +200,7 @@ static void exit(int status) {
     the grading scripts. */
 static int write(int fd, const void *buffer, unsigned size) {
   check_address(buffer + size - 1);
-
+  
   if (fd == STDOUT) {
     putbuf(buffer, size);
     return size;
@@ -322,7 +322,7 @@ static int open(const char *file) {
     return -1;
   struct thread *th = thread_current();
   struct thread_file *thread_file = malloc(sizeof(struct thread_file));
-  thread_file->fd = th->next_fd++;
+  thread_file->fd = th->fd++;
   thread_file->file = file_open;
   list_push_back(&th->files, &thread_file->elem);
   return thread_file->fd;
