@@ -31,6 +31,7 @@ static void seek(int, unsigned);
 static unsigned tell(int);
 static void close(int);
 
+/* Find the file based on fd */
 static struct thread_file *find_file(int fd) {
   struct thread_file *file = NULL;
   struct list_elem *elem;
@@ -48,6 +49,7 @@ void syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+/* Check address validity */
 static void *check_address(const void *addr) {
   // Check if the address is within the user address space
   if (!is_user_vaddr(addr))
@@ -68,6 +70,27 @@ static void *check_address(const void *addr) {
   return ptr;
 }
 
+/* Check if str is a valid string in user space. */
+static bool check_str(const char *str, size_t constraint) {
+  const uint8_t *ptr = check_address(str);
+  size_t i = 0;
+  while (i < constraint) {
+    int ch = get_user(ptr + i);
+
+    if (ch == -1)
+      exit(-1);
+    if (ch == '\0')
+      break;
+
+    i++;
+  }
+
+  if (i == constraint)
+    return false;
+  return true;
+}
+
+/* Helper function to get a user byte from the address space. */
 static int get_user(const uint8_t *uaddr) {
   int result;
   asm("movl $1f, %0; movzbl %1, %0; 1:" : "=&a"(result) : "m"(*uaddr));
@@ -229,7 +252,12 @@ static int write(int fd, const void *buffer, unsigned size) {
     successfully loaded its executable.
 
     Use appropriate synchronization to ensure this. */
-static tid_t exec(const char *cmd_line) { return process_execute(cmd_line); }
+static tid_t exec(const char *cmd_line) {
+  if (!check_str(cmd_line, 129))
+    return -1;
+
+  return process_execute(cmd_line);
+}
 
 /* Waits for a child process PID and retrieves the
     child’s exit status.
@@ -282,6 +310,9 @@ static int wait(tid_t tid) { return process_wait(tid); }
     does not open it: opening the new file is a separate operation which
     would require an open system call. */
 static bool create(const char *file, unsigned initial_size) {
+  if (!check_str(file, 14))
+    return false;
+
   acquire_file_lock();
   bool success = filesys_create(file, initial_size);
   release_file_lock();
@@ -292,6 +323,9 @@ static bool create(const char *file, unsigned initial_size) {
     otherwise. A file may be removed regardless of whether it is open
     or closed, and removing an open file does not close it. */
 static bool remove(const char *file) {
+  if (!check_str(file, 14))
+    return false;
+
   acquire_file_lock();
   bool success = filesys_remove(file);
   release_file_lock();
@@ -317,21 +351,36 @@ static bool remove(const char *file) {
     independently in separate calls to close and they do not share a
     file position. */
 static int open(const char *file) {
+  if (!check_str(file, 14))
+    return false;
+
   acquire_file_lock();
   struct file *file_open = filesys_open(file);
   release_file_lock();
+
   if (file_open == NULL)
     return -1;
-  struct thread *th = thread_current();
+
+  struct thread *cur = thread_current();
   struct thread_file *thread_file = malloc(sizeof(struct thread_file));
-  thread_file->fd = th->fd++;
+  thread_file->fd = cur->fd++;
   thread_file->file = file_open;
-  list_push_back(&th->files, &thread_file->elem);
+  list_push_back(&cur->files, &thread_file->elem);
   return thread_file->fd;
 }
 
 /* Returns the size, in bytes, of the file open as FD. */
-static int filesize(int fd) {}
+static int filesize(int fd) {
+  struct thread_file *thread_file = find_file(fd);
+  if (thread_file == NULL)
+    return -1;
+
+  acquire_file_lock();
+  int size = file_length(thread_file->file);
+  release_file_lock();
+
+  return size;
+}
 
 /* Reads SIZE bytes from the file open as FD into buffer. Returns
     the number of bytes actually read (0 at end of file), or -1 if
