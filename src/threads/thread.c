@@ -416,11 +416,11 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->files);
   sema_init(&t->sema, 0);
   t->exit_code = 0;
+  t->fd = 2; // Start file descriptor at 2 (0 and 1 are reserved for stdin and stdout)
   if (t == initial_thread)
     t->parent = NULL;
   else
     t->parent = thread_current();
-
 #endif
 
   old_level = intr_disable();
