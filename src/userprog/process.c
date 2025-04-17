@@ -59,8 +59,11 @@ tid_t process_execute(const char *file_name) {
 
   if (tid == TID_ERROR)
     palloc_free_page(fn_copy0);
-  else
+  else {
     sema_down(&thread_current()->sema);
+    if (thread_current()->load_state == FAIL)
+      return TID_ERROR;
+  }
 
   return tid;
 }
@@ -116,6 +119,12 @@ static void start_process(void *file_name_) {
   }
 
   struct thread *cur = thread_current();
+
+  /* renew load state */
+  if (success)
+    cur->parent->load_state = SUCCESS;
+  else
+    cur->parent->load_state = FAIL;
 
   sema_up(&cur->parent->sema);
 
@@ -189,6 +198,17 @@ void process_exit(void) {
 
     list_remove(file);
     free(thread_file);
+  }
+
+  // Free children
+  if (cur != NULL && !list_empty(&cur->children)) {
+    struct list_elem *tmp;
+    for (struct list_elem *e = list_begin(&cur->children);
+         e != list_end(&cur->children);) {
+      tmp = e;
+      e = list_remove(e);
+      free(list_entry(tmp, struct child, elem));
+    }
   }
 
   /* Destroy the current process's page directory and switch back

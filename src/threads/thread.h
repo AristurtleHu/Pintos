@@ -17,6 +17,13 @@ enum thread_status {
 /* File descriptor */
 enum fd { STDIN, STDOUT, STDERR };
 
+/* Load state: success or not */
+enum load_state {
+  INIT,    /* Loading. */
+  SUCCESS, /* Success. */
+  FAIL     /* Failed. (exit -1 finally) */
+};
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -97,14 +104,17 @@ struct thread {
 
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
-  uint32_t *pagedir;          /* Page directory. */
-  int exit_code;              /* Process exit code */
+  uint32_t *pagedir; /* Page directory. */
+  int exit_code;     /* Process exit code */
+
   struct list children;       /* List of child processes. */
   struct thread *parent;      /* Parent process. */
   struct child *thread_child; /* Child thread. */
   struct semaphore sema;      /* Semaphore for process exit. */
-  struct list files;          /* List of open files. */
-  int fd;                     /* File descriptor. */
+  enum load_state load_state; /* State if loading success */
+
+  struct list files; /* List of open files. */
+  int fd;            /* File descriptor. */
 #endif
 
   /* Owned by thread.c. */

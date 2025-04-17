@@ -428,6 +428,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   sema_init(&t->sema, 0);
   t->exit_code = 0;
   t->fd = STDERR;
+  t->load_state = INIT;
 
   if (t == initial_thread)
     t->parent = NULL;
