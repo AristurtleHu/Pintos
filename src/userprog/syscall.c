@@ -5,14 +5,15 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/interrupt.h"
+#include "threads/malloc.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include <stdio.h>
-#include <syscall-nr.h>
 #include <stdlib.h>
+#include <syscall-nr.h>
 
 static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);
@@ -201,7 +202,7 @@ static void exit(int status) {
     the grading scripts. */
 static int write(int fd, const void *buffer, unsigned size) {
   check_address(buffer + size - 1);
-  
+
   if (fd == STDOUT) {
     putbuf(buffer, size);
     return size;
@@ -274,9 +275,7 @@ static tid_t exec(const char *cmd_line) { return process_execute(cmd_line); }
     (in ‘threads/init.c’). Implement process_wait() according to the
     comment at the top of the function and then implement the wait
     system call in terms of process_wait(). */
-static int wait(tid_t tid) {
-  return process_wait(tid);
-}
+static int wait(tid_t tid) { return process_wait(tid); }
 
 /* Creates a new file called FILE initially INITIAL_SIZE bytes in size.
     Returns true if successful, false otherwise. Creating a new file
@@ -321,7 +320,7 @@ static int open(const char *file) {
   acquire_file_lock();
   struct file *file_open = filesys_open(file);
   release_file_lock();
-  if(file_open == NULL)
+  if (file_open == NULL)
     return -1;
   struct thread *th = thread_current();
   struct thread_file *thread_file = malloc(sizeof(struct thread_file));

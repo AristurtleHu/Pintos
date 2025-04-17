@@ -178,14 +178,16 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-  #ifdef USERPROG
+
+#ifdef USERPROG
   t->thread_child = malloc(sizeof(struct child));
   t->thread_child->tid = tid;
   sema_init(&t->thread_child->sema, 0);
   list_push_back(&thread_current()->children, &t->thread_child->elem);
   t->thread_child->is_waited = false;
   t->thread_child->exit_code = 0;
-  #endif
+#endif
+
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
   kf->eip = NULL;
@@ -425,7 +427,8 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->files);
   sema_init(&t->sema, 0);
   t->exit_code = 0;
-  t->fd = 2; // Start file descriptor at 2 (0 and 1 are reserved for stdin and stdout)
+  t->fd = STDERR;
+
   if (t == initial_thread)
     t->parent = NULL;
   else

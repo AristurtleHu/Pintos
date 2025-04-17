@@ -146,24 +146,26 @@ static void start_process(void *file_name_) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-  struct list *chileren_current = &thread_current()->children;
-  struct child *child_ptr = NULL;
-  for(struct list_elem *e = list_begin(chileren_current); e != list_end(chileren_current); e = list_next(e)) {
-    child_ptr = list_entry(e, struct child, elem);
-    if(child_ptr->tid == child_tid) {
-      if(child_ptr->is_waited) {
+  struct list *children = &thread_current()->children;
+  struct child *child = NULL;
+
+  for (struct list_elem *e = list_begin(children); e != list_end(children);
+       e = list_next(e)) {
+    child = list_entry(e, struct child, elem);
+
+    if (child->tid == child_tid) {
+      if (child->is_waited)
         return -1;
-      }
-      child_ptr->is_waited = true;
-      sema_down(&child_ptr->sema);
-      int exit_code = child_ptr->exit_code;
+
+      child->is_waited = true;
+      sema_down(&child->sema);
+      int exit_code = child->exit_code;
       list_remove(e);
       return exit_code;
     }
   }
   return -1;
-
- }
+}
 
 /* Free the current process's resources. */
 void process_exit(void) {
@@ -174,13 +176,17 @@ void process_exit(void) {
 
   struct list_elem *file;
   struct list *files = &thread_current()->files;
+
+  // Close all files
   while (!list_empty(files)) {
     file = list_pop_front(files);
     struct thread_file *thread_file =
         list_entry(file, struct thread_file, elem);
+
     acquire_file_lock();
     file_close(thread_file->file);
     release_file_lock();
+
     list_remove(file);
     free(thread_file);
   }
