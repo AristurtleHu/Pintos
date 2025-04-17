@@ -137,12 +137,12 @@ static void page_fault(struct intr_frame *f) {
   user = (f->error_code & PF_U) != 0;
   user = (f->error_code & PF_U) != 0;
 
-   // user error 
-   if (!user){
-      f->eip = f->eax;
-      f->eax = -1;
-      return;
-   }
+  // user error
+  if (!user) {
+    f->eip = f->eax;
+    f->eax = -1;
+    return;
+  }
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
