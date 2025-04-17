@@ -1,8 +1,8 @@
 #define USERPROG // TODO: Remove this line when you finish the project
 
 #include "userprog/syscall.h"
-#include "devices/shutdown.h"
 #include "devices/input.h"
+#include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/interrupt.h"
@@ -18,7 +18,7 @@
 
 static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);
-static bool put_user (uint8_t *, uint8_t);
+static bool put_user(uint8_t *, uint8_t);
 static void halt(void);
 static void exit(int);
 static tid_t exec(const char *);
@@ -93,15 +93,15 @@ static bool check_str(const char *str, size_t constraint) {
 }
 
 /* Check if str is able to write */
-static void * check_write (void *vaddr, size_t size){
-  if (!is_user_vaddr (vaddr))
-      exit (-1);
+static void *check_write(void *vaddr, size_t size) {
+  if (!is_user_vaddr(vaddr))
+    exit(-1);
 
-  for (size_t i = 0; i < size; i++){
-      if (!put_user (vaddr + i, 0))
-        exit (-1);
-    }
-  return (void *) vaddr;
+  for (size_t i = 0; i < size; i++) {
+    if (!put_user(vaddr + i, 0))
+      exit(-1);
+  }
+  return (void *)vaddr;
 }
 
 /* Helper function to get a user byte from the address space. */
@@ -112,14 +112,13 @@ static int get_user(const uint8_t *uaddr) {
 }
 
 /* Writes to user address. True for success. */
-static bool
-put_user (uint8_t *udst, uint8_t byte){
+static bool put_user(uint8_t *udst, uint8_t byte) {
   int error_code;
-  asm ("movl $1f, %0; movb %b2, %1; 1:"
-       : "=&a" (error_code), "=m" (*udst) : "q" (byte));
+  asm("movl $1f, %0; movb %b2, %1; 1:"
+      : "=&a"(error_code), "=m"(*udst)
+      : "q"(byte));
   return error_code != -1;
 }
-
 
 static void syscall_handler(struct intr_frame *f UNUSED) {
   int syscall = *(int *)check_address(f->esp);
@@ -415,7 +414,7 @@ static int filesize(int fd) {
 static int read(int fd, void *buffer, unsigned size) {
   check_write(buffer, size);
 
-  if(fd == STDIN) {
+  if (fd == STDIN) {
     unsigned i;
     for (i = 0; i < size; i++) {
       *(uint8_t *)(buffer + i) = input_getc();
