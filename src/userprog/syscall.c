@@ -12,6 +12,7 @@
 #include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <stdlib.h>
 
 static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);
@@ -273,7 +274,9 @@ static tid_t exec(const char *cmd_line) { return process_execute(cmd_line); }
     (in ‘threads/init.c’). Implement process_wait() according to the
     comment at the top of the function and then implement the wait
     system call in terms of process_wait(). */
-static int wait(tid_t tid) {}
+static int wait(tid_t tid) {
+  return process_wait(tid);
+}
 
 /* Creates a new file called FILE initially INITIAL_SIZE bytes in size.
     Returns true if successful, false otherwise. Creating a new file
