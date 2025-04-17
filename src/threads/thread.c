@@ -178,7 +178,14 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-
+  #ifdef USERPROG
+  t->thread_child = malloc(sizeof(struct child));
+  t->thread_child->tid = tid;
+  sema_init(&t->thread_child->sema, 0);
+  list_push_back(&thread_current()->children, &t->thread_child->elem);
+  t->thread_child->is_waited = false;
+  t->thread_child->exit_code = 0;
+  #endif
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
   kf->eip = NULL;
@@ -264,6 +271,8 @@ void thread_exit(void) {
 
 #ifdef USERPROG
   process_exit();
+  thread_current()->thread_child->exit_code = thread_current()->exit_code;
+  sema_up(&thread_current()->thread_child->sema);
 #endif
 
   /* Remove thread from all threads list, set our status to dying,

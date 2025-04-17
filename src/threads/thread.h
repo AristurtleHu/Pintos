@@ -101,6 +101,7 @@ struct thread {
   int exit_code;         /* Process exit code */
   struct list children;  /* List of child processes. */
   struct thread *parent; /* Parent process. */
+  struct child *thread_child; /* Child thread. */
   struct semaphore sema; /* Semaphore for process exit. */
   struct list files;     /* List of open files. */
   int fd;                /* File descriptor. */
@@ -109,6 +110,15 @@ struct thread {
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
 };
+
+struct child{
+   tid_t tid; /* Child thread id */
+   int exit_code; /* Exit code of the child */
+   struct list_elem elem; /* List element. */
+   struct semaphore sema; /* Semaphore for process exit. */
+   bool is_waited; /* True if the parent has waited for the child */
+};
+
 
 struct thread_file {
   int fd;                /* File descriptor */
