@@ -121,9 +121,11 @@ static void start_process(void *file_name_) {
   struct thread *cur = thread_current();
 
   /* renew load state */
-  if (success)
+  if (success) {
     cur->parent->load_state = SUCCESS;
-  else
+    cur->exec_file = filesys_open(name);
+    file_deny_write(cur->exec_file);
+  } else
     cur->parent->load_state = FAIL;
 
   sema_up(&cur->parent->sema);
@@ -183,10 +185,14 @@ void process_exit(void) {
 
   printf("%s: exit(%d)\n", cur->name, cur->exit_code);
 
-  struct list_elem *file;
-  struct list *files = &thread_current()->files;
+  if (cur->exec_file != NULL) {
+    file_allow_write(cur->exec_file);
+    file_close(cur->exec_file);
+  }
 
   // Close all files
+  struct list_elem *file;
+  struct list *files = &thread_current()->files;
   while (!list_empty(files)) {
     file = list_pop_front(files);
     struct thread_file *thread_file =
@@ -403,6 +409,8 @@ bool load(const char *file_name, void (**eip)(void), void **esp) {
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;
+  file_deny_write(file);              /* We are done with this file now. */
+  thread_current()->exec_file = file; /* Save the file pointer. */
 
 done:
   /* We arrive here whether the load is successful or not. */

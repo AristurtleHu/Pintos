@@ -429,7 +429,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   t->exit_code = 0;
   t->fd = STDERR;
   t->load_state = INIT;
-
+  t->exec_file = NULL;
   if (t == initial_thread)
     t->parent = NULL;
   else

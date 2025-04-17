@@ -112,9 +112,9 @@ struct thread {
   struct child *thread_child; /* Child thread. */
   struct semaphore sema;      /* Semaphore for process exit. */
   enum load_state load_state; /* State if loading success */
-
-  struct list files; /* List of open files. */
-  int fd;            /* File descriptor. */
+  struct file *exec_file;     /* Executable file. */
+  struct list files;          /* List of open files. */
+  int fd;                     /* File descriptor. */
 #endif
 
   /* Owned by thread.c. */
