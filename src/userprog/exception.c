@@ -139,7 +139,7 @@ static void page_fault(struct intr_frame *f) {
 
   // user error
   if (!user) {
-    f->eip = f->eax;
+    f->eip = (void *)f->eax;
     f->eax = -1;
     return;
   }

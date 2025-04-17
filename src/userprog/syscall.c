@@ -2,6 +2,7 @@
 
 #include "userprog/syscall.h"
 #include "devices/shutdown.h"
+#include "devices/input.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/interrupt.h"
@@ -17,6 +18,7 @@
 
 static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);
+static bool put_user (uint8_t *, uint8_t);
 static void halt(void);
 static void exit(int);
 static tid_t exec(const char *);
@@ -90,12 +92,34 @@ static bool check_str(const char *str, size_t constraint) {
   return true;
 }
 
+/* Check if str is able to write */
+static void * check_write (void *vaddr, size_t size){
+  if (!is_user_vaddr (vaddr))
+      exit (-1);
+
+  for (size_t i = 0; i < size; i++){
+      if (!put_user (vaddr + i, 0))
+        exit (-1);
+    }
+  return (void *) vaddr;
+}
+
 /* Helper function to get a user byte from the address space. */
 static int get_user(const uint8_t *uaddr) {
   int result;
   asm("movl $1f, %0; movzbl %1, %0; 1:" : "=&a"(result) : "m"(*uaddr));
   return result;
 }
+
+/* Writes to user address. True for success. */
+static bool
+put_user (uint8_t *udst, uint8_t byte){
+  int error_code;
+  asm ("movl $1f, %0; movb %b2, %1; 1:"
+       : "=&a" (error_code), "=m" (*udst) : "q" (byte));
+  return error_code != -1;
+}
+
 
 static void syscall_handler(struct intr_frame *f UNUSED) {
   int syscall = *(int *)check_address(f->esp);
@@ -388,7 +412,27 @@ static int filesize(int fd) {
     of file).
 
     Fd 0 reads from the keyboard using input_getc(). */
-static int read(int fd, void *buffer, unsigned size) {}
+static int read(int fd, void *buffer, unsigned size) {
+  check_write(buffer, size);
+
+  if(fd == STDIN) {
+    unsigned i;
+    for (i = 0; i < size; i++) {
+      *(uint8_t *)(buffer + i) = input_getc();
+    }
+    return size;
+  } else {
+    struct thread_file *thread_file = find_file(fd);
+    if (thread_file == NULL)
+      return -1;
+
+    acquire_file_lock();
+    int bytes_read = file_read(thread_file->file, buffer, size);
+    release_file_lock();
+
+    return bytes_read;
+  }
+}
 
 /* Changes the next byte to be read or written in open file FD to POSITION,
     expressed in bytes from the beginning of the file. (Thus, a position of
@@ -401,13 +445,41 @@ static int read(int fd, void *buffer, unsigned size) {}
     will return an error.) These semantics are implemented in the file
     system and do not require any special effort in system call implementation.
  */
-static void seek(int fd, unsigned position) {}
+static void seek(int fd, unsigned position) {
+  struct thread_file *thread_file = find_file(fd);
+  if (thread_file == NULL)
+    return;
+
+  acquire_file_lock();
+  file_seek(thread_file->file, position);
+  release_file_lock();
+}
 
 /* Returns the position of the next byte to be read or written in open
     file FD, expressed in bytes from the beginning of the file. */
-static unsigned tell(int fd) {}
+static unsigned tell(int fd) {
+  struct thread_file *thread_file = find_file(fd);
+  if (thread_file == NULL)
+    return -1;
+
+  acquire_file_lock();
+  unsigned position = file_tell(thread_file->file);
+  release_file_lock();
+
+  return position;
+}
 
 /* Closes file descriptor FD. Exiting or terminating a process implicitly
     closes all its open file descriptors, as if by calling this function
     for each one. */
-static void close(int fd) {}
+static void close(int fd) {
+  struct thread_file *thread_file = find_file(fd);
+  if (thread_file == NULL)
+    return;
+
+  acquire_file_lock();
+  file_close(thread_file->file);
+  list_remove(&thread_file->elem);
+  free(thread_file);
+  release_file_lock();
+}
