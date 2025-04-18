@@ -113,7 +113,7 @@ struct thread {
   struct semaphore sema;      /* Semaphore for process exit. */
   enum load_state load_state; /* State if loading success. */
 
-  struct file *exec_file; /* Executable file. */
+  struct file *exec_file; /* Exec file held by the thread. */
   struct list files;      /* List of open files. */
   int fd;                 /* File descriptor. */
 #endif
@@ -125,9 +125,9 @@ struct thread {
 struct child {
   tid_t tid;             /* Child thread id */
   int exit_code;         /* Exit code of the child */
-  struct list_elem elem; /* List element */
   struct semaphore sema; /* Semaphore for process exit */
   bool is_waited;        /* True if the parent has waited for the child */
+  struct list_elem elem; /* List element */
 };
 
 struct thread_file {
