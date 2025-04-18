@@ -427,7 +427,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   list_init(&t->files);
   sema_init(&t->sema, 0);
   t->exit_code = 0;
-  t->fd = STDERR;
+  t->fd = 2;
   t->load_state = INIT;
   t->thread_child = NULL;
   t->exec_file = NULL;

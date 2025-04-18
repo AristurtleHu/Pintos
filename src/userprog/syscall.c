@@ -1,4 +1,4 @@
-#define USERPROG // TODO: Remove this line when you finish the project
+// #define USERPROG // TODO: Remove this line when finished
 
 #include "userprog/syscall.h"
 #include "devices/input.h"
@@ -72,10 +72,10 @@ static void *check_address(const void *addr) {
 }
 
 /* Check if str is a valid string in user space. */
-static bool check_str(const char *str, size_t constraint) {
+static bool check_str(const char *str, size_t size) {
   const uint8_t *ptr = check_address(str);
   size_t i = 0;
-  while (i < constraint) {
+  while (i < size) {
     int ch = get_user(ptr + i);
 
     if (ch == -1)
@@ -86,7 +86,7 @@ static bool check_str(const char *str, size_t constraint) {
     i++;
   }
 
-  if (i == constraint)
+  if (i == size)
     return false;
   return true;
 }
@@ -100,7 +100,7 @@ static void *check_write(void *vaddr, size_t size) {
     if (!put_user(vaddr + i, 0))
       exit(-1);
   }
-  return (void *)vaddr;
+  return vaddr;
 }
 
 /* Helper function to get a user byte from the address space. */
@@ -415,9 +415,9 @@ static int read(int fd, void *buffer, unsigned size) {
 
   if (fd == STDIN) {
     unsigned i;
-    for (i = 0; i < size; i++) {
+    for (i = 0; i < size; i++)
       *(uint8_t *)(buffer + i) = input_getc();
-    }
+
     return size;
   } else {
     struct thread_file *thread_file = find_file(fd);

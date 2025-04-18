@@ -1,4 +1,4 @@
-#define USERPROG // TODO: Remove this line when you finish the project
+// #define USERPROG // TODO: Remove this line when finished
 
 #include "userprog/process.h"
 #include "filesys/directory.h"
@@ -120,9 +120,10 @@ static void start_process(void *file_name_) {
 
   struct thread *cur = thread_current();
 
-  /* renew load state */
+  /* renew load state and add exec file */
   if (success) {
     cur->parent->load_state = SUCCESS;
+
     cur->exec_file = filesys_open(name);
     file_deny_write(cur->exec_file);
   } else
@@ -186,7 +187,6 @@ void process_exit(void) {
   printf("%s: exit(%d)\n", cur->name, cur->exit_code);
 
   if (cur->exec_file != NULL) {
-    file_allow_write(cur->exec_file);
     file_close(cur->exec_file);
   }
 
