@@ -62,13 +62,44 @@ None.
 
 > **B1:** Copy here the declaration of each new or changed `struct` or struct member, global or static variable, `typedef`, or enumeration. Identify the purpose of each in 25 words or less.
 
-*Your answer here.*
+int exit_code;     /* Process exit code. */
+
+struct list children;       /* List of child processes. */
+struct thread *parent;      /* Parent process. */
+struct child *thread_child; /* Child thread. */
+struct semaphore sema;      /* Semaphore for process exit. */
+enum load_state load_state; /* State if loading success. */
+
+struct file *exec_file; /* Executable file. */
+struct list files;      /* List of open files. */
+int fd;                 /* File descriptor. */
+
+struct child {
+  tid_t tid;             /* Child thread id */
+  int exit_code;         /* Exit code of the child */
+  struct list_elem elem; /* List element */
+  struct semaphore sema; /* Semaphore for process exit */
+  bool is_waited;        /* True if the parent has waited for the child */
+};
+struct thread_file {
+  int fd;                /* File descriptor */
+  struct file *file;     /* File pointer */
+  struct list_elem elem; /* List element */
+};
+
+enum fd { STDIN, STDOUT, STDERR };
+
+enum load_state {
+  INIT,    /* Loading. */
+  SUCCESS, /* Success. */
+  FAIL     /* Failed. (exit -1 finally) */
+};
 
 
 
 > **B2:** Describe how file descriptors are associated with open files. Are file descriptors unique within the entire OS or just within a single process?
 
-*Your answer here.*
+The file descriptor (fd) is allocated by the system call open, using the smallest unused integer in the current process. The kernel creates a struct thread_file object, binds the fd to the underlying struct file, and adds this object to the process's file list. During file operations, the process locates the corresponding thread_file via the fd and accesses the actual file object through its file member to perform read/write operations.
 
 
 
@@ -76,7 +107,7 @@ None.
 
 > **B3:** Describe your code for reading and writing user data from the kernel.
 
-*Your answer here.*
+
 
 
 
