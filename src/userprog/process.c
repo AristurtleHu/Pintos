@@ -186,10 +186,6 @@ void process_exit(void) {
 
   printf("%s: exit(%d)\n", cur->name, cur->exit_code);
 
-  if (cur->exec_file != NULL) {
-    file_close(cur->exec_file);
-  }
-
   // Close all files
   struct list_elem *file;
   struct list *files = &thread_current()->files;
@@ -205,7 +201,9 @@ void process_exit(void) {
     list_remove(file);
     free(thread_file);
   }
-
+  if (cur->exec_file != NULL) {
+    file_close(cur->exec_file);
+  }
   // Free children
   if (cur != NULL && !list_empty(&cur->children)) {
     struct list_elem *tmp;
@@ -218,7 +216,7 @@ void process_exit(void) {
   }
 
   /* Destroy the current process's page directory and switch back
-     to the kernel-only page directory. */
+   to the kernel-only page directory. */
   pd = cur->pagedir;
   if (pd != NULL) {
     /* Correct ordering here is crucial.  We must set
@@ -409,12 +407,12 @@ bool load(const char *file_name, void (**eip)(void), void **esp) {
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;
-  file_deny_write(file);              /* We are done with this file now. */
-  thread_current()->exec_file = file; /* Save the file pointer. */
+  // file_deny_write(file);              /* We are done with this file now. */
+  // thread_current()->exec_file = file; /* Save the file pointer. */
 
 done:
   /* We arrive here whether the load is successful or not. */
-  file_close(file);
+  // file_close(file);
   return success;
 }
 
