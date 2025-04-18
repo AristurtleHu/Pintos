@@ -3,6 +3,7 @@
         "interrupt.h": "c",
         "directory.h": "c",
         "syscall-nr.h": "c",
-        "pagedir.h": "c"
+        "pagedir.h": "c",
+        "process.h": "c"
     }
 }
