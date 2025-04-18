@@ -40,9 +40,8 @@ static struct thread_file *find_file(int fd) {
   struct list *f = &thread_current()->files;
   for (elem = list_begin(f); elem != list_end(f); elem = list_next(elem)) {
     file = list_entry(elem, struct thread_file, elem);
-    if (file->fd == fd) {
+    if (file->fd == fd)
       return file;
-    }
   }
   return NULL;
 }

@@ -182,10 +182,10 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 #ifdef USERPROG
   t->thread_child = malloc(sizeof(struct child));
   t->thread_child->tid = tid;
-  sema_init(&t->thread_child->sema, 0);
-  list_push_back(&thread_current()->children, &t->thread_child->elem);
   t->thread_child->is_waited = false;
   t->thread_child->exit_code = 0;
+  sema_init(&t->thread_child->sema, 0);
+  list_push_back(&thread_current()->children, &t->thread_child->elem);
 #endif
 
   /* Stack frame for kernel_thread(). */
@@ -429,7 +429,9 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   t->exit_code = 0;
   t->fd = STDERR;
   t->load_state = INIT;
+  t->thread_child = NULL;
   t->exec_file = NULL;
+
   if (t == initial_thread)
     t->parent = NULL;
   else
