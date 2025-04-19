@@ -129,30 +129,39 @@ struct thread_file {
 
 > **B2:** Describe how file descriptors are associated with open files. Are file descriptors unique within the entire OS or just within a single process?
 
-The file descriptor (fd) is allocated by the system call `open`, using the smallest unused integer in the current process. The kernel creates a `struct thread_file` object, binds the `fd` to the underlying `struct file`, and adds this object to the process's file list. During file operations, the process locates the corresponding `thread_file` via the `fd` and accesses the actual file object through its file member to perform read/write operations.
 The fd is unique just within a single process.
+The file descriptor (fd) is allocated by the system call `open`, using the smallest unused integer in the current process. The kernel creates a `struct thread_file` object, binds the `fd` to the underlying `struct file`, and adds this object to the process's file list. During file operations, the process locates the corresponding `thread_file` via the `fd` and accesses the actual file object through its file member to perform read/write operations.
 
 
 
 ### Algorithms
 
 > **B3:** Describe your code for reading and writing user data from the kernel.
+ 
+Firstly, we check that a user pointer point is below `PHYS_BASE`.
+An invalid user pointer will cause a "page fault" that handled in "userprog/exception.c" and we terminates the process with `exit_code = -1`.
+
+Next, we read and write.
+
 Read:
-The function first validates the buffer using check_write(buffer, size). For STDIN input, it reads characters individually from the console via input_getc(). 
-For other file descriptors, it locates the target file through find_file and executes file_read.
+The function first validates the buffer using `check_write(buffer, size)`. For `STDIN` input, it reads characters individually from the console via `input_getc()`. 
+For other file descriptors, it locates the target file through `find_file(int fd)` and executes `file_read()`.
+
 Write:
-In the case of STDOUT, the output is directly printed to the console using putbuf. For other file descriptors, the system locates the appropriate file and performs the write operation via file_write.
+In the case of `STDOUT`, the output is directly printed to the console using `putbuf()`. For other file descriptors, the system locates the appropriate file and performs the write operation via `file_write()`.
 
 
 
 
 > **B4:** Suppose a system call causes a full page (4,096 bytes) of data to be copied from user space into the kernel. What is the least and the greatest possible number of inspections of the page table (e.g., calls to `pagedir_get_page()`) that might result? What about for a system call that only copies 2 bytes of data? Is there room for improvement in these numbers, and how much?
+ 
 If the user buffer is 4KB-aligned, only one check is required. If it spans two pages, two checks are necessary.When two bytes reside within a single page, only one validation is required. If they cross page boundaries, two separate checks must be performed.
 Per-byte invocations of `pagedir_get_page` (such as within copy loops) cause repeated page validation. A 4KB-aligned data copy would perform 4096 unnecessary validations where a single check would suffice,Pre-validate all pages covering the user buffer before performing the copy operation.
 
 
 
 > **B5:** Briefly describe your implementation of the "wait" system call and how it interacts with process termination.
+ 
 * Locate the child process using the provided `child_tid`.
 * If the child is already marked as `is_waited`, return `-1`.
 * Otherwise, set `is_waited = true`.
@@ -166,18 +175,19 @@ termination:
 
 
 > **B6:** Accessing user program memory at a user-specified address may fail due to a bad pointer value, requiring termination of the process. Describe your strategy for managing error-handling without obscuring core functionality and ensuring that all allocated resources (locks, buffers, etc.) are freed. Give an example.
-## Memory Access Safety
+
+1. Memory Access Safety
 
 * Pre-validate user addresses with `is_user_vaddr(uaddr)` before access.
 * Perform per-byte dynamic checks during actual operations.
 
-## Lock Management
+2. Lock Management
 
 * Use `acquire_file_lock()` and `release_file_lock()` to ensure:
     * Locks are acquired before critical sections.
     * Guaranteed release on both success and error paths.
 
-## Resource Cleanup
+3. Resource Cleanup
 
 * Centralized resource release via `process_exit()`.
 * Handles all allocations.
