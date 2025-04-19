@@ -170,13 +170,11 @@ Call `process_wait()`.
 We define a new `struct child` to represent child's exit status. And a list of `child` is added into parent's thread struct. 
 
 * Get the list of child processes (`children`) of the current process (the parent).
-* Iterate through this list, using the `list_entry` macro to get the corresponding `struct child` for each list element.
+* Iterate through this list, using the `list_entry` to get the corresponding `struct child` for each list element.
 * Compare the `tid` of each child process with the input `child_tid`.
-
 * If a matching child process is found, first check its `is_waited` flag. If the flag is `true`, it means this child process has already been waited upon by another `wait` call; return `-1` immediately.
 * If not already waited upon, set the child process's `is_waited` flag to `true`, indicating that the parent process is now starting to wait for it.
-* When `sema_down` returns,it signifies that the child process has terminated. At this point, read the exit code (`child->exit_code`) set by the child from the `child` structure. Then, call `list_remove(e)` to remove the entry for this child process from the parent's `children` list, completing the resource cleanup.
-
+* When `sema_down` returns, it signifies that the child process has terminated. At this point, read the exit code (`child->exit_code`) set by the child from the `child` structure. Then, call `list_remove(e)` to remove the entry for this child process from the parent's `children` list, completing the resource cleanup.
 * If the entire `children` list is traversed without finding a child process with a matching `tid`, the function returns `-1`, indicating that the specified child process does not exist or is not a child of the current process.
 
 
@@ -199,7 +197,7 @@ We define a new `struct child` to represent child's exit status. And a list of `
 * Handles all allocations.
 * Serves as single cleanup point on termination.
 
-For example, in syscall `read()`, we first check if the address of the buffer is vaild. if not, then we call `exit(-1)` to exit. THen the `thread_exit()` will do `sema_up` for ever child, free the space of them, then close all the files of the thread and free.
+For example, in syscall `read()`, we first check if the address of the buffer is vaild. if not, then we call `exit(-1)` to exit. Then the `thread_exit()` will do `sema_up` for ever child, free the space of them, then close all the files of the thread and free.
 
 
 ### Synchronization
