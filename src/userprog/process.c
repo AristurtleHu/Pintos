@@ -163,14 +163,14 @@ int process_wait(tid_t child_tid UNUSED) {
 
   for (struct list_elem *e = list_begin(children); e != list_end(children);
        e = list_next(e)) {
-    child = list_entry(e, struct child, elem);
+    child = list_entry(e, struct child, elem); // Get the child thread
 
     if (child->tid == child_tid) {
-      if (child->is_waited)
+      if (child->is_waited) // child already waited
         return -1;
 
       child->is_waited = true;
-      sema_down(&child->sema);
+      sema_down(&child->sema); // Wait for the child to exit
       int exit_code = child->exit_code;
       list_remove(e);
       return exit_code;
@@ -184,6 +184,7 @@ void process_exit(void) {
   struct thread *cur = thread_current();
   uint32_t *pd;
 
+  // Exit info
   printf("%s: exit(%d)\n", cur->name, cur->exit_code);
 
   // Close all files

@@ -38,8 +38,10 @@ static struct thread_file *find_file(int fd) {
   struct thread_file *file = NULL;
   struct list_elem *elem;
   struct list *f = &thread_current()->files;
+
   for (elem = list_begin(f); elem != list_end(f); elem = list_next(elem)) {
     file = list_entry(elem, struct thread_file, elem);
+
     if (file->fd == fd)
       return file;
   }
@@ -63,6 +65,7 @@ static void *check_address(const void *addr) {
 
   uint8_t *check_by = (uint8_t *)addr;
 
+  // Check each byte of the address
   for (uint8_t i = 0; i < 4; i++) {
     if (get_user(check_by + i) == -1)
       exit(-1);
@@ -75,6 +78,8 @@ static void *check_address(const void *addr) {
 static bool check_str(const char *str, size_t size) {
   const uint8_t *ptr = check_address(str);
   size_t i = 0;
+
+  // Check each byte of the string
   while (i < size) {
     int ch = get_user(ptr + i);
 
@@ -96,6 +101,7 @@ static void *check_write(void *vaddr, size_t size) {
   if (!is_user_vaddr(vaddr))
     exit(-1);
 
+  // Check each byte is able to write
   for (size_t i = 0; i < size; i++) {
     if (!put_user(vaddr + i, 0))
       exit(-1);
@@ -110,7 +116,7 @@ static int get_user(const uint8_t *uaddr) {
   return result;
 }
 
-/* Writes to user address. True for success. */
+/* Helper function to check writes to user address. True for success. */
 static bool put_user(uint8_t *udst, uint8_t byte) {
   int error_code;
   asm("movl $1f, %0; movb %b2, %1; 1:"
@@ -119,6 +125,7 @@ static bool put_user(uint8_t *udst, uint8_t byte) {
   return error_code != -1;
 }
 
+/* Switch to corresponding syscall */
 static void syscall_handler(struct intr_frame *f UNUSED) {
   int syscall = *(int *)check_address(f->esp);
 
@@ -248,7 +255,7 @@ static void exit(int status) {
 static int write(int fd, const void *buffer, unsigned size) {
   check_address(buffer + size - 1);
 
-  if (fd == STDOUT) {
+  if (fd == STDOUT) { // fd == 1
     putbuf(buffer, size);
     return size;
   } else {
@@ -413,7 +420,7 @@ static int filesize(int fd) {
 static int read(int fd, void *buffer, unsigned size) {
   check_write(buffer, size);
 
-  if (fd == STDIN) {
+  if (fd == STDIN) { // fd == 0
     unsigned i;
     for (i = 0; i < size; i++)
       *(uint8_t *)(buffer + i) = input_getc();

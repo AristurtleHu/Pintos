@@ -180,6 +180,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   tid = t->tid = allocate_tid();
 
 #ifdef USERPROG
+  // Initialize the child thread
   t->thread_child = malloc(sizeof(struct child));
   t->thread_child->tid = tid;
   t->thread_child->is_waited = false;
@@ -273,6 +274,7 @@ void thread_exit(void) {
 
 #ifdef USERPROG
   process_exit();
+  // Renew the child's elements
   thread_current()->thread_child->exit_code = thread_current()->exit_code;
   sema_up(&thread_current()->thread_child->sema);
 #endif
@@ -423,6 +425,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
   t->magic = THREAD_MAGIC;
 
 #ifdef USERPROG
+  /* Initialize the thread's elements. */
   list_init(&t->children);
   list_init(&t->files);
   sema_init(&t->sema, 0);

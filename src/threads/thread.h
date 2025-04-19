@@ -122,6 +122,7 @@ struct thread {
   unsigned magic; /* Detects stack overflow. */
 };
 
+/* The element of list children */
 struct child {
   tid_t tid;             /* Child thread id */
   int exit_code;         /* Exit code of the child */
@@ -130,6 +131,7 @@ struct child {
   struct list_elem elem; /* List element */
 };
 
+/* The element of list files */
 struct thread_file {
   int fd;                /* File descriptor */
   struct file *file;     /* File pointer */
