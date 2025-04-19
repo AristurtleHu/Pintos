@@ -183,7 +183,15 @@ We define a new `struct child` to represent child's exit status. And a list of `
 1. Memory Access Safety
 
 * Pre-validate user addresses with `is_user_vaddr(uaddr)` before access.
-* Perform per-byte dynamic checks during actual operations.
+* Perform per-byte dynamic checks during actual operations. Using `get_user()` and `put_user()`
+* If the pointer we check about is a bad pointer we call `exit(-1)`.
+ 
+```C
+// helper function for checking ptr 
+check_address() /* Check address validity */;
+check_str()     /* Check if str is a valid string in user space. */;
+check_write()   /* Check if str is able to write */
+```
 
 2. Lock Management
 
@@ -204,11 +212,13 @@ For example, in syscall `read()`, we first check if the address of the buffer is
 
 > **B7:** The "exec" system call returns -1 if loading the new executable fails, so it cannot return before the new executable has completed loading. How does your code ensure this? How is the load success/failure status passed back to the thread that calls "exec"?
 
-1.  First, in `process_execute()`, we initialize `tid` with the return value of `thread_create()` (which starts `start_process`) and set up a semaphore (e.g., `load_sema`) initialized to 0 for synchronization. We immediately check if `tid == TID_ERROR` (thread creation failure) and return `-1` if it is.
+1.  First, in `process_execute()`, we initialize `tid` with the return value of `thread_create()` (which starts `start_process`) and set up a semaphore `sema` initialized to 0 for synchronization. We immediately check if `tid == TID_ERROR` (thread creation failure) and return `-1` if it is.
 
-2.  Then, in `start_process()`, the new thread attempts to `load()` the executable. After the attempt, it records the success/failure status (e.g., in a shared structure) and then performs `sema_up(&load_sema)` to signal `process_execute`. If loading failed, it sets its own exit code to `-1` and calls `thread_exit()`.
+2.  Then, in `start_process()`, the new thread attempts to `load()` the executable. After the attempt, it records the success/failure status to its parent thread's `load_state` and then performs `sema_up(&sema)` to signal `process_execute`. If loading failed, it sets its own exit code to `-1` and calls `thread_exit()`.
 
-3.  Finally, back in `process_execute()` (after the `tid != TID_ERROR` check), we call `sema_down(&load_sema)` to wait for `start_process` to finish loading. Once `sema_down` returns, we check the recorded load success/failure status. If loading failed, `process_execute` returns `-1`; otherwise (if loading succeeded), it returns the successfully obtained `tid`.
+3.  Finally, back in `process_execute()` (after the `tid != TID_ERROR` check), we call `sema_down(&sema)` to wait for `start_process` to finish loading. Once `sema_down` returns, we check the recorded load success/failure status. If loading failed, `process_execute` returns `-1`; otherwise (if loading succeeded), it returns the successfully obtained `tid`.
+  
+The success/failure status is kept in `load_state` owned by each thread.
 
 
 > **B8:** Consider a parent process P with child process C. How do you ensure proper synchronization and avoid race conditions when:
@@ -218,31 +228,40 @@ For example, in syscall `read()`, we first check if the address of the buffer is
 > - P terminates after C exits?
 > - Are there any special cases?
 
-1.  **P calls `wait(C)` before C exits?**
-    * P calls `process_wait(C)`, identifies C, and calls `sema_down()` on C's associated semaphore, causing P to block.
-    * Later, C calls `process_exit()`. In this function, C frees all its allocated resources. Before terminating, C calls `sema_up()` on the semaphore.
-    * The `sema_up()` call unblocks P. P returns from `sema_down()`, completes the `process_wait()` call (retrieving status if applicable), and continues execution. Synchronization is achieved via the semaphore blocking and signaling.
+**P calls `wait(C)` before C exits?**
 
-2.  **P calls `wait(C)` after C exits?**
-    * C calls `process_exit()`. "its resource has been already freed." During this process, C also calls `sema_up()` on its semaphore before terminating.
-    * Later, P calls `process_wait(C)`. It identifies C and calls `sema_down()` on the semaphore.
-    * Since `sema_up()` was already called by C, `sema_down()` returns immediately without blocking P.
-    * `process_wait()` completes. The prior exit of C is handled correctly by the semaphore's state.
+* P calls `process_wait(C)`, search in the list children to find C, and calls `sema_down()` on C's associated semaphore, causing P to block.
+* Later, C calls `process_exit()`. In this function, C frees all its allocated resources. Before terminating, C calls `sema_up()` on the semaphore.
+* The `sema_up()` call unblocks P. P returns from `sema_down()`, completes the `process_wait()` call (retrieving status if applicable), and continues execution.
 
-3.  **P terminates without waiting, before C exits?**
-    * P calls `process_exit()`. "its resources including `wait_child` will be freed when P exits." P terminates.
-    * C is still alive and continues running.
-    * Later, C calls `process_exit()`. "`sema_up()` will be called on the semaphore for C". Because P already terminated and freed `wait_child`, "C cannot find `wait_child`".
-    * C proceeds to free its own resources within its `process_exit()` and terminates. Resources from both P and C are eventually freed.
+**P calls `wait(C)` after C exits?**
 
-4.  **P terminates without waiting, after C exits?**
-    * C calls `process_exit()`. "its resource has been already freed." C is "dead".
-    * Later, P calls `process_exit()`. It has not waited for C.
-    * P frees "its resources including `wait_child` when P exits."
-    * Since C already exited and freed its resources ("If C is dead, it will exit normally and its resources will be freed as well" - implying C's cleanup already happened), P's exit simply cleans up P's own state, including any remaining tracking info (`wait_child`) for the already-terminated C.
+* C calls `process_exit()`. Its resource has been already freed. It calls `sema_up()` before terminating.
+* Later, P calls `process_wait(C)`. It identifies C and calls `sema_down()` on the semaphore.
+* Since `sema_up()` was already called by C, `sema_down()` returns immediately without blocking P.
 
-5.  **Are there any special cases?**
-    * Your description primarily covers the core synchronization via `sema_down`/`sema_up` and resource cleanup via `process_exit`. Special cases like multiple children, handling multiple `wait()` calls for the same child (perhaps needing an `is_waited` flag), or signal interruptions would need specific handling built upon this foundation.
+**P terminates without waiting, before C exits?**
+ 
+* P calls `process_exit()`. Its resources will be freed. Exit code is renewed for C and called `sema_up`
+```C
+thread_current()->thread_child->exit_code = thread_current()->exit_code;
+ sema_up(&thread_current()->thread_child->sema);
+``` 
+* C is still alive and continues running.
+* C proceeds to free its own resources within its `process_exit()` and terminates. Resources from both P and C are eventually freed.
+
+**P terminates without waiting, after C exits?**
+
+* C calls `process_exit()`. C is "dead".
+* Later, P calls `process_exit()`. It isn't waited for C.
+* P frees its resources when P exits.
+* Since C already exited and freed its resources, P's exit simply cleans up P's own state, including any remaining tracking info for the already-terminated C.
+
+**Are there any special cases?**
+
+C calls wait and then P calls wait.
+
+* Using `bool is_waited` to identify if a child is waiting. If true, just return -1 for the call of wait. 
 
 
 
@@ -251,21 +270,22 @@ For example, in syscall `read()`, we first check if the address of the buffer is
 
 > **B9:** Why did you choose to implement access to user memory from the kernel in the way that you did?
 
-**Option 1 (Slightly more formal):**
-
-> Our implementation ensures kernel stability by validating user-provided memory addresses **prior** to any access. This pre-validation step is essential to guarantee that potentially invalid or malicious pointers from user space do not compromise or crash the kernel.
-
-**Option 2 (Focus on the 'why'):**
-
-> The chosen method for kernel access to user memory prioritizes system protection. By validating addresses **before** they are used, we prevent bad pointers—which could point anywhere—from causing catastrophic failures or corrupting kernel integrity.
-
-**Option 3 (More direct linkage):**
-
-> To maintain system integrity, our design choice mandates address validation **before** kernel access to user memory. This ensures that bad pointers are caught early, preventing them from destroying critical kernel structures or halting the system.
+ Our implementation ensures kernel stability by validating user addresses prior to any access. 
+ 
+ This pre-validation step is essential to guarantee that potentially invalid or malicious pointers from user space do not compromise or crash the kernel.
 
 > **B10:** What advantages or disadvantages can you see to your design for file descriptors?
 
-It is simple and convenient to manage opened files in a unique thread or process, but in fact we cannot know which thread owns this.
+Advantages:
+
+1. Space Usage is minimized
+2. Kernel is aware of all the open files. Easy to manage opened files in a unique thread or process.
+
+Disadvantages:
+
+1. Consumes kernel space, user program may open lots of files to crash the kernel.
+2. No ability to know which thread owns the file.
+3. Accessing a fd is `O(n)`, where n is the number of fd for the current thread.
 
 
 
