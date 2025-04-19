@@ -145,32 +145,39 @@ Next, we read and write.
 
 Read:
 The function first validates the buffer using `check_write(buffer, size)`. For `STDIN` input, it reads characters individually from the console via `input_getc()`. 
-For other file descriptors, it locates the target file through `find_file(int fd)` and executes `file_read()`.
+For other file descriptors, it locates the target file through `find_file()` and executes `file_read()`. (with lock acquire and release)
 
 Write:
-In the case of `STDOUT`, the output is directly printed to the console using `putbuf()`. For other file descriptors, the system locates the appropriate file and performs the write operation via `file_write()`.
+In the case of `STDOUT`, the output is directly printed to the console using `putbuf()`. 
+For other file descriptors, the system locates the appropriate file through `find_file()` and performs the write operation via `file_write()`. (with lock acquire and release)
 
 
 
 
 > **B4:** Suppose a system call causes a full page (4,096 bytes) of data to be copied from user space into the kernel. What is the least and the greatest possible number of inspections of the page table (e.g., calls to `pagedir_get_page()`) that might result? What about for a system call that only copies 2 bytes of data? Is there room for improvement in these numbers, and how much?
  
-If the user buffer is 4KB-aligned, only one check is required. If it spans two pages, two checks are necessary.When two bytes reside within a single page, only one validation is required. If they cross page boundaries, two separate checks must be performed.
-Per-byte invocations of `pagedir_get_page` (such as within copy loops) cause repeated page validation. A 4KB-aligned data copy would perform 4096 unnecessary validations where a single check would suffice,Pre-validate all pages covering the user buffer before performing the copy operation.
+If the user buffer is 4KB-aligned, only one check is required. If it spans two pages, two checks are necessary.
 
+When two bytes reside within a single page, only one validation is required. If they cross page boundaries, two separate checks must be performed.
+
+Pre-validate all pages covering the user buffer before performing the copy operation. Per-byte invocations of `pagedir_get_page()` (such as within copy loops) cause repeated page validation. A 4KB-aligned data copy would perform 4096 unnecessary validations where a single check would suffice. 
 
 
 > **B5:** Briefly describe your implementation of the "wait" system call and how it interacts with process termination.
  
+Call `process_wait()`.
+
+We define a new `struct child` to represent child's exit status. And a list of `child` is added into parent's thread struct. 
+
 * Locate the child process using the provided `child_tid`.
 * If the child is already marked as `is_waited`, return `-1`.
-* Otherwise, set `is_waited = true`.
-termination:
+* Otherwise, set `is_waited = true` and `sema_down()`.
+
+Termination:
 * Wake up the parent process.
 * Retrieve the exit code via `child->exit_code`.
 * Remove the child entry from the linked list.
 * Return the exit code to the parent.
-* Pass `exit_code` to the parent thread.
 * Release all resources back to the parent thread.
 
 
