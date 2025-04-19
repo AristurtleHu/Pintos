@@ -275,9 +275,9 @@ static int write(int fd, const void *buffer, unsigned size) {
 
     Use appropriate synchronization to ensure this. */
 static tid_t exec(const char *cmd_line) {
-
   if (!check_str(cmd_line, 129))
     return -1;
+
   return process_execute(cmd_line);
 }
 
