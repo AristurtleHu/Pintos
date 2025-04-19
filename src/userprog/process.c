@@ -201,9 +201,9 @@ void process_exit(void) {
     list_remove(file);
     free(thread_file);
   }
-  if (cur->exec_file != NULL) {
+  if (cur->exec_file != NULL)
     file_close(cur->exec_file);
-  }
+
   // Free children
   if (cur != NULL && !list_empty(&cur->children)) {
     struct list_elem *tmp;
@@ -407,8 +407,6 @@ bool load(const char *file_name, void (**eip)(void), void **esp) {
   *eip = (void (*)(void))ehdr.e_entry;
 
   success = true;
-  // file_deny_write(file);              /* We are done with this file now. */
-  // thread_current()->exec_file = file; /* Save the file pointer. */
 
 done:
   /* We arrive here whether the load is successful or not. */
