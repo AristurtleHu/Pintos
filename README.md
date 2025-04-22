@@ -8,6 +8,7 @@ Pintos currently supports:
 
 - Kernel threads
 - Loading and running user programs
+- Virtual memory
 - A basic file system
 
 All of these features are implemented in a minimal, straightforward manner, providing an excellent starting point for enhancement and learning.
@@ -18,8 +19,8 @@ As part of the course, project teams will strengthen Pintos by:
 
 1. Enhancing the thread system
 2. Improving user program support
-3. Expanding the file system capabilities
-4. Implementing virtual memory
+3. Implementing virtual memory
+4. Expanding the file system capabilities
 
 The first one is implemented in branch "project1", while the rest is implemented in branch "main".
 
