@@ -21,7 +21,7 @@ As part of the course, project teams will strengthen Pintos by:
 3. Expanding the file system capabilities
 4. Implementing virtual memory
 
-The first one is implemented in branch "main", while the rest is implemented in branch "master".
+The first one is implemented in branch "project1", while the rest is implemented in branch "main".
 
 ## Execution Environment
 
