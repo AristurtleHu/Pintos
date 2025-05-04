@@ -1,4 +1,4 @@
-// #define USERPROG // TODO: Remove this line when finished
+#define USERPROG // TODO: Remove this line when finished
 
 #include "userprog/process.h"
 #include "filesys/directory.h"
