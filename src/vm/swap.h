@@ -1,4 +1,4 @@
-#ifndef SWAP_H
-#define SWAP_H
+#ifndef VM_SWAP_H
+#define VM_SWAP_H
 
 #endif /* vm/swap.h */
