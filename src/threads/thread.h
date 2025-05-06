@@ -126,7 +126,7 @@ struct thread {
   struct hash sup_page_table; /* Supplementary page table */
   void *esp;                  /* User sp for page fault */
   struct list mmap_list;      /* List of files mapped to memory */
-  int mapid;                  /* Map ID */
+  mapid_t mapid_cnt;          /* Mapid count */
 #endif
 
   /* Owned by thread.c. */

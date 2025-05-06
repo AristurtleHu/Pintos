@@ -194,11 +194,11 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   list_push_back(&thread_current()->children, &t->thread_child->elem);
 #endif
 
-#ifdef VM // TODO: add vm
+#ifdef VM
   t->esp = NULL;
-  t->mapid = 0;
+  t->mapid_cnt = 0;
   if (tid > 2) { // not idle
-    // hash_init(&t->sup_page_table, spte_hash, spte_less, NULL);
+    hash_init(&t->sup_page_table, page_table_hash, page_table_less, NULL);
     list_init(&t->mmap_list);
   }
 #endif
