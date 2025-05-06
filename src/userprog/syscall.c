@@ -1,10 +1,12 @@
 #define USERPROG // TODO: Remove this line when finished
+#define VM       // TODO: Remove this line when finished
 
 #include "userprog/syscall.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "list.h"
 #include "threads/interrupt.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
@@ -12,9 +14,16 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syscall-nr.h>
+
+#ifdef VM
+#include "vm/frame.h"
+#endif
 
 static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);

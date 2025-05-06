@@ -133,10 +133,10 @@ int main(void) {
   filesys_init(format_filesys);
 #endif
 
-#ifdef VM
+#ifdef VM // TODO:
   /* Initialize virtual memory. */
-  swap_init();
-  frame_init();
+  // swap_init();
+  // frame_init();
 #endif
 
   printf("Boot complete.\n");
