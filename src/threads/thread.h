@@ -1,9 +1,10 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+#include "hash.h"
+#include "list.h"
 #include "threads/synch.h"
 #include <debug.h>
-#include <list.h>
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -118,6 +119,14 @@ struct thread {
   int fd;                 /* File descriptor. */
 #endif
 
+#ifdef VM                     // TODO: change
+  void *save_esp;             /* Save sp for page fault */
+  struct hash sup_page_table; /* Supplementary page table */
+
+  int mapid_cnt;         /* Map ID */
+  struct list mmap_list; /* List of files mapped to memory */
+#endif
+
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
 };
@@ -135,6 +144,14 @@ struct child {
 struct thread_file {
   int fd;                /* File descriptor */
   struct file *file;     /* File pointer */
+  struct list_elem elem; /* List element */
+};
+
+/* The element of list mmap */
+struct mmap_file {       // TODO: change
+  int mapid;             /* Mapping id */
+  struct file *file;     /* File pointer */
+  void *base;            /* Base address of the mapped file */
   struct list_elem elem; /* List element */
 };
 

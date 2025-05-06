@@ -1,6 +1,7 @@
 #include "threads/thread.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "list.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -10,13 +11,17 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include <debug.h>
-#include <list.h>
 #include <random.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+
 #ifdef USERPROG
 #include "userprog/process.h"
+#endif
+
+#ifdef VM
+#include "vm/page.h"
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -187,6 +192,15 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   t->thread_child->exit_code = 0;
   sema_init(&t->thread_child->sema, 0);
   list_push_back(&thread_current()->children, &t->thread_child->elem);
+#endif
+
+#ifdef VM // TODO: changed by thread.h
+  t->save_esp = NULL;
+  t->mapid_cnt = 0;
+  if (tid > 2) { // not idle
+    hash_init(&t->sup_page_table, spte_hash, spte_less, NULL);
+    list_init(&t->mmap_list);
+  }
 #endif
 
   /* Stack frame for kernel_thread(). */
