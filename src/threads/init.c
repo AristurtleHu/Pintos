@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #ifdef USERPROG
 #include "userprog/exception.h"
 #include "userprog/gdt.h"
@@ -31,11 +32,18 @@
 #else
 #include "tests/threads/tests.h"
 #endif
+
 #ifdef FILESYS
 #include "devices/block.h"
 #include "devices/ide.h"
 #include "filesys/filesys.h"
 #include "filesys/fsutil.h"
+#endif
+
+#ifdef VM
+#include "vm/frame.h"
+#include "vm/page.h"
+#include "vm/swap.h"
 #endif
 
 /* Page directory with kernel mappings only. */
@@ -123,6 +131,12 @@ int main(void) {
   ide_init();
   locate_block_devices();
   filesys_init(format_filesys);
+#endif
+
+#ifdef VM
+  /* Initialize virtual memory. */
+  swap_init();
+  frame_init();
 #endif
 
   printf("Boot complete.\n");
