@@ -194,13 +194,13 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
   list_push_back(&thread_current()->children, &t->thread_child->elem);
 #endif
 
-#ifdef VM // TODO: changed by thread.h
-  // t->save_esp = NULL;
-  // t->mapid_cnt = 0;
-  // if (tid > 2) { // not idle
-  //   hash_init(&t->sup_page_table, spte_hash, spte_less, NULL);
-  //   list_init(&t->mmap_list);
-  // }
+#ifdef VM // TODO: add vm
+  t->esp = NULL;
+  t->mapid = 0;
+  if (tid > 2) { // not idle
+    // hash_init(&t->sup_page_table, spte_hash, spte_less, NULL);
+    list_init(&t->mmap_list);
+  }
 #endif
 
   /* Stack frame for kernel_thread(). */

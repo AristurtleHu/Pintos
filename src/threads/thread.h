@@ -30,6 +30,9 @@ enum load_state {
 typedef int tid_t;
 #define TID_ERROR ((tid_t) - 1) /* Error value for tid_t. */
 
+// Mmap ID
+typedef int mapid_t;
+
 /* Thread priorities. */
 #define PRI_MIN 0      /* Lowest priority. */
 #define PRI_DEFAULT 31 /* Default priority. */
@@ -119,12 +122,11 @@ struct thread {
   int fd;                 /* File descriptor. */
 #endif
 
-#ifdef VM                     // TODO: change
-  void *save_esp;             /* Save sp for page fault */
+#ifdef VM
   struct hash sup_page_table; /* Supplementary page table */
-
-  int mapid_cnt;         /* Map ID */
-  struct list mmap_list; /* List of files mapped to memory */
+  void *esp;                  /* User sp for page fault */
+  struct list mmap_list;      /* List of files mapped to memory */
+  int mapid;                  /* Map ID */
 #endif
 
   /* Owned by thread.c. */
@@ -148,8 +150,8 @@ struct thread_file {
 };
 
 /* The element of list mmap */
-struct mmap_file {       // TODO: change
-  int mapid;             /* Mapping id */
+struct mmap_file {
+  mapid_t mapid;         /* Mapping id */
   struct file *file;     /* File pointer */
   void *base;            /* Base address of the mapped file */
   struct list_elem elem; /* List element */
