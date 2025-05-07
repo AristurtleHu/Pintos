@@ -17,6 +17,7 @@ struct frame_table_entry {
 };
 
 void frame_init(void);
+struct frame_table_entry *find_frame(void *kaddr);
 void *frame_alloc(enum palloc_flags flags, struct sup_page_table_entry *spte);
 void frame_free(void *kaddr);
 
