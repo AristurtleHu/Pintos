@@ -26,6 +26,7 @@ struct lock frame_lock;
 struct list_elem *clock_ptr;
 
 void *evict_frame(void);
+bool all_pinned(void);
 
 /* Initialize the frame table. */
 void frame_init(void) {
