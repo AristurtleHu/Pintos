@@ -582,7 +582,7 @@ static free_mmap_entry(mmap_entry_t *entry) {
         release_file_lock();
       }
       if (pagedir_get_page(cur->pagedir, spte->uaddr)) {
-        pagedir_clear_page(cur->pagedir, addr);
+        // TODO:
       }
     }
   }
@@ -595,6 +595,7 @@ void munmap(mapid_t mapping) {
        e = list_next(e)) {
     mmap_entry_t *entry = list_entry(e, mmap_entry_t, elem);
     if (entry->id == mapping) {
+      // TODO:
     }
   }
 }
