@@ -1,8 +1,12 @@
 #include "userprog/exception.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 #include "userprog/gdt.h"
+#include "userprog/syscall.h"
+#include "vm/page.h"
 #include <inttypes.h>
+#include <stddef.h>
 #include <stdio.h>
 
 /* Number of page faults processed. */
@@ -139,18 +143,48 @@ static void page_fault(struct intr_frame *f) {
   write = (f->error_code & PF_W) != 0;
   user = (f->error_code & PF_U) != 0;
 
-  // user error
-  if (!user) {
-    f->eip = (void *)f->eax;
-    f->eax = -1;
-    return;
+  void *esp = f->esp;
+
+  /* If a page fault occurs in kernel mode,
+     use the esp saved in syscall. */
+#ifdef VM
+  if (!user)
+    esp = thread_current()->esp;
+#endif
+
+  bool success = false;
+
+  /* Error */
+  if (!fault_addr || !not_present || (is_kernel_vaddr(fault_addr) && user)) {
+
+    // user error
+    if (!user) {
+      f->eip = (void *)f->eax;
+      f->eax = -1;
+    }
+
+    exit(-1);
+    NOT_REACHED();
   }
+
+  struct sup_page_table_entry *spte = page_get_spte(fault_addr);
+
+  if (spte != NULL)
+    success = load_page(fault_addr, !user);
+  else {
+    /* stack growth. */
+    if (fault_addr >= PHYS_BASE - MAX_STACK_SIZE && fault_addr >= esp - 32)
+      success = stack_grow(fault_addr, !user);
+  }
+
+  if (!success)
+    exit(-1);
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
      which fault_addr refers. */
-  printf("Page fault at %p: %s error %s page in %s context.\n", fault_addr,
-         not_present ? "not present" : "rights violation",
-         write ? "writing" : "reading", user ? "user" : "kernel");
-  kill(f);
+  //   printf("Page fault at %p: %s error %s page in %s context.\n", fault_addr,
+  //          not_present ? "not present" : "rights violation",
+  //          write ? "writing" : "reading", user ? "user" : "kernel");
+  //   kill(f);
 }
