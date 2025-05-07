@@ -167,7 +167,7 @@ static void page_fault(struct intr_frame *f) {
     NOT_REACHED();
   }
 
-  struct sup_page_table_entry *spte = page_get_spte(fault_addr);
+  struct sup_page_table_entry *spte = find_spte(fault_addr);
 
   if (spte != NULL)
     success = load_page(fault_addr, !user);
