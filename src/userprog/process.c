@@ -23,6 +23,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef VM
+#include "vm/frame.h"
+#include "vm/page.h"
+#include "vm/swap.h"
+#endif
+
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
@@ -83,7 +89,10 @@ static void start_process(void *file_name_) {
 
   char *save_ptr;
   char *name = strtok_r(file_name, " ", &save_ptr);
+
+  acquire_file_lock();
   success = load(name, &if_.eip, &if_.esp);
+  release_file_lock();
 
   if (success) {
     int argc = 0;
@@ -215,6 +224,13 @@ void process_exit(void) {
       free(list_entry(tmp, struct child, elem));
     }
   }
+
+#ifdef VM
+  /* Free all pages in the frame table. */
+  mmap_files_free(&cur->mmap_list);
+  frame_remove(cur);
+  page_free(&cur->sup_page_table);
+#endif
 
   /* Destroy the current process's page directory and switch back
    to the kernel-only page directory. */
@@ -417,7 +433,7 @@ done:
 
 /* load() helpers. */
 
-static bool install_page(void *upage, void *kpage, bool writable);
+bool install_page(void *upage, void *kpage, bool writable);
 
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
@@ -491,6 +507,18 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
     size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
+#ifdef VM
+
+    /* Lazy load (load nothing). */
+    if (!lazy_load(file, ofs, upage, page_read_bytes, page_zero_bytes,
+                   writable))
+      return false;
+
+    /* Advance. */
+    ofs += PGSIZE;
+
+#else
+
     /* Get a page of memory. */
     uint8_t *kpage = palloc_get_page(PAL_USER);
     if (kpage == NULL)
@@ -509,6 +537,8 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
       return false;
     }
 
+#endif
+
     /* Advance. */
     read_bytes -= page_read_bytes;
     zero_bytes -= page_zero_bytes;
@@ -520,18 +550,12 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool setup_stack(void **esp) {
-  uint8_t *kpage;
-  bool success = false;
-
-  kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-  if (kpage != NULL) {
-    success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
-    if (success)
-      *esp = PHYS_BASE;
-    else
-      palloc_free_page(kpage);
+  if (stack_grow(PHYS_BASE - PGSIZE, false)) {
+    *esp = PHYS_BASE;
+    return true;
   }
-  return success;
+
+  return false;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel
@@ -543,7 +567,7 @@ static bool setup_stack(void **esp) {
    with palloc_get_page().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
-static bool install_page(void *upage, void *kpage, bool writable) {
+bool install_page(void *upage, void *kpage, bool writable) {
   struct thread *t = thread_current();
 
   /* Verify that there's not already a page at that virtual
