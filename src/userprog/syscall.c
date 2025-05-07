@@ -29,7 +29,7 @@ static void syscall_handler(struct intr_frame *);
 static int get_user(const uint8_t *uaddr);
 static bool put_user(uint8_t *, uint8_t);
 static void halt(void);
-static void exit(int);
+void exit(int);
 static tid_t exec(const char *);
 static int wait(tid_t);
 static bool create(const char *, unsigned);
@@ -41,6 +41,7 @@ static int write(int, const void *, unsigned);
 static void seek(int, unsigned);
 static unsigned tell(int);
 static void close(int);
+static mapid_t mmap(int, void *);
 
 /* Find the file based on fd */
 static struct thread_file *find_file(int fd) {
@@ -138,6 +139,10 @@ static bool put_user(uint8_t *udst, uint8_t byte) {
 static void syscall_handler(struct intr_frame *f UNUSED) {
   int syscall = *(int *)check_address(f->esp);
 
+#ifdef VM
+  thread_current()->esp = f->esp;
+#endif
+
   switch (syscall) {
   case SYS_HALT: {
     halt();
@@ -225,6 +230,19 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
     break;
   }
 
+  case SYS_MMAP: {
+    int fd = *(int *)check_address(f->esp + sizeof(int *));
+    void *addr = *(void **)check_address(f->esp + 2 * sizeof(int *));
+    f->eax = (uint32_t)mmap(fd, addr);
+    break;
+  }
+
+  case SYS_MUNMAP: {
+    mapid_t mapping = *(mapid_t *)check_address(f->esp + sizeof(int *));
+    munmap(mapping);
+    break;
+  }
+
   default:
     PANIC("Unknown system call.");
   }
@@ -240,7 +258,7 @@ static void halt(void) { shutdown_power_off(); }
     If the process's parent waits for it (see below), this is the status that
     will be returned. Conventionally, a status of 0 indicates success and
     nonzero values indicate errors. */
-static void exit(int status) {
+void exit(int status) {
   thread_current()->exit_code = status;
   thread_exit();
 }
@@ -497,3 +515,7 @@ static void close(int fd) {
   free(thread_file);
   release_file_lock();
 }
+
+static mapid_t mmap(int fd, void *addr) { PANIC("mmap not implemented"); }
+
+void munmap(mapid_t mapping) { PANIC("munmap not implemented"); }
