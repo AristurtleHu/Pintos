@@ -229,7 +229,7 @@ void process_exit(void) {
   /* Free all pages in the frame table. */
   mmap_files_free(&cur->mmap_list);
   frame_remove(cur);
-  page_free(&cur->sup_page_table);
+  page_table_free(&cur->sup_page_table);
 #endif
 
   /* Destroy the current process's page directory and switch back
