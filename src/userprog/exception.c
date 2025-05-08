@@ -172,7 +172,7 @@ static void page_fault(struct intr_frame *f) {
   if (spte != NULL)
     success = load_page(fault_addr, !user);
   else {
-    /* stack growth. */
+    /* stack grow */
     if (fault_addr >= PHYS_BASE - MAX_STACK_SIZE && fault_addr >= esp - 32)
       success = stack_grow(fault_addr, !user);
   }
