@@ -573,20 +573,21 @@ static void free_mmap_entry(struct mmap_file *entry) {
   struct thread *cur = thread_current();
   void *addr = entry->base;
   struct sup_page_table_entry *spte = find_spte(addr);
-  if (spte) {
-    if (pagedir_is_dirty) {
-      acquire_file_lock();
-      file_seek(spte->file, spte->offset);
-      file_write(spte->file, addr, spte->read_bytes);
-      release_file_lock();
+  for (off_t i = 0; i < file_length(entry->file); i += PGSIZE) {
+    if (spte) {
+      if (pagedir_is_dirty(cur->pagedir, spte->uaddr)) {
+        acquire_file_lock();
+        file_seek(spte->file, spte->offset);
+        file_write(spte->file, addr, spte->read_bytes);
+        release_file_lock();
+      }
+      if (pagedir_get_page(cur->pagedir, spte->uaddr)) {
+        frame_free(pagedir_get_page(cur->pagedir, spte->uaddr));
+        pagedir_clear_page(cur->pagedir, spte->uaddr);
+      }
+      hash_delete(&cur->sup_page_table, &spte->elem);
+      addr += PGSIZE;
     }
-    if (pagedir_get_page(cur->pagedir, spte->uaddr)) {
-      frame_free(pagedir_get_page(cur->pagedir, spte->uaddr));
-      pagedir_clear_page(cur->pagedir, spte->uaddr);
-    }
-    hash_delete(&cur->sup_page_table, &spte->elem);
-
-    addr += PGSIZE;
   }
   acquire_file_lock();
   file_close(entry->file);
