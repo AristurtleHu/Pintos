@@ -42,6 +42,7 @@ static void seek(int, unsigned);
 static unsigned tell(int);
 static void close(int);
 static mapid_t mmap(int, void *);
+static bool check_overlaps(void *addr, int size);
 
 /* Find the file based on fd */
 static struct thread_file *find_file(int fd) {
@@ -516,14 +517,14 @@ static void close(int fd) {
   release_file_lock();
 }
 
-bool check_overlaps(void *addr, int size) {
+static bool check_overlaps(void *addr, int size) {
   if (addr == NULL)
     return false;
   if (size < 0)
     return false;
   struct thread *cur = thread_current();
   for (int i = size; i >= 0; i -= PGSIZE) {
-    if (find_spte(addr) || page_get_page(cur->pagedir, addr))
+    if (find_spte(addr) || pagedir_get_page(cur->pagedir, addr))
       return false;
     addr += PGSIZE;
   }
