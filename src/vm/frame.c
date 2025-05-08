@@ -1,5 +1,5 @@
-#define VM
-#define USERPROG // TODO: Remove this line when finished
+// #define VM
+// #define USERPROG // TODO: Remove this line when finished
 
 #include "vm/frame.h"
 #include "filesys/file.h"
@@ -27,6 +27,8 @@ struct list_elem *clock_ptr;
 
 void *evict_frame(void);
 bool all_pinned(void);
+struct frame_table_entry *clock_next(void);
+void write_file(struct frame_table_entry *fte);
 
 /* Initialize the frame table. */
 void frame_init(void) {
@@ -50,6 +52,19 @@ struct frame_table_entry *find_frame(void *kaddr) {
   }
 
   return NULL;
+}
+
+/* Find the next frame table entry in the clock algorithm. */
+struct frame_table_entry *clock_next(void) {
+  struct frame_table_entry *fte = NULL;
+
+  if (clock_ptr == list_end(&frame_table))
+    clock_ptr = list_begin(&frame_table);
+
+  fte = list_entry(clock_ptr, struct frame_table_entry, elem);
+  clock_ptr = list_next(clock_ptr);
+
+  return fte;
 }
 
 /* Allocate a frame to SPTE.
@@ -171,19 +186,25 @@ bool all_pinned(void) {
   return true;
 }
 
+/* Write for mmap. */
+void write_file(struct frame_table_entry *fte) {
+  struct file *file = fte->spte->file;
+
+  acquire_file_lock();
+  file_seek(file, fte->spte->offset);
+  file_write(file, fte->kaddr, PGSIZE);
+  release_file_lock();
+
+  pagedir_set_dirty(fte->owner->pagedir, fte->spte->uaddr, false);
+}
+
 /* Evict a frame and return kaddr. */
 void *evict_frame(void) {
   struct frame_table_entry *fte = NULL;
   bool frame_available = !all_pinned();
 
   while (frame_available) {
-    /* Make the list circular. */
-    if (clock_ptr == list_end(&frame_table))
-      clock_ptr = list_begin(&frame_table);
-
-    fte = list_entry(clock_ptr, struct frame_table_entry, elem);
-    clock_ptr = list_next(clock_ptr);
-
+    fte = clock_next();
     if (!fte->pinned) {
 
       // A second chance, the clock hand moves on.
@@ -191,14 +212,14 @@ void *evict_frame(void) {
         pagedir_set_accessed(fte->owner->pagedir, fte->spte->uaddr, false);
 
       else {
+        enum intr_level old_level = intr_disable(); // critical section
         lock_acquire(&fte->spte->spte_lock);
-        enum intr_level old_level = intr_disable();
 
         fte->spte->kaddr = NULL;
         pagedir_clear_page(fte->owner->pagedir, fte->spte->uaddr);
 
-        intr_set_level(old_level);
         list_remove(&fte->elem);
+        intr_set_level(old_level);
         break;
       }
     }
@@ -210,16 +231,8 @@ void *evict_frame(void) {
     return NULL;
 
   if (fte->spte->type == PAGE_MMAP &&
-      pagedir_is_dirty(fte->owner->pagedir, fte->spte->uaddr)) {
-    struct file *file = fte->spte->file;
-
-    acquire_file_lock();
-    file_seek(file, fte->spte->offset);
-    file_write(file, fte->kaddr, PGSIZE);
-    release_file_lock();
-
-    pagedir_set_dirty(fte->owner->pagedir, fte->spte->uaddr, false);
-  }
+      pagedir_is_dirty(fte->owner->pagedir, fte->spte->uaddr))
+    write_file(fte);
 
   else
     fte->spte->swap_index = swap_out(fte->kaddr);
