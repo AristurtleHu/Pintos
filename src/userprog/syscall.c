@@ -589,6 +589,7 @@ static void free_mmap_entry(struct mmap_file *entry) {
       addr += PGSIZE;
     }
   }
+
   acquire_file_lock();
   file_close(entry->file);
   release_file_lock();
@@ -597,10 +598,11 @@ static void free_mmap_entry(struct mmap_file *entry) {
 
 void munmap(mapid_t mapping) {
   struct thread *cur = thread_current();
-  struct list_elem *e;
-  for (e = list_begin(&cur->mmap_list); e != list_end(&cur->mmap_list);
-       e = list_next(e)) {
+
+  for (struct list_elem *e = list_begin(&cur->mmap_list);
+       e != list_end(&cur->mmap_list); e = list_next(e)) {
     struct mmap_file *entry = list_entry(e, struct mmap_file, elem);
+
     if (entry->mapid == mapping) {
       list_remove(e);
       free_mmap_entry(entry);
