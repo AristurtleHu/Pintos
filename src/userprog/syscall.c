@@ -516,17 +516,17 @@ static void close(int fd) {
   release_file_lock();
 }
 
-static mmap_entry_t *new_mmap_entry(void *addr, struct file *file,
-                                    int page_count) {
+static struct mmap_file *new_mmap_entry(void *addr, struct file *file,
+                                        int page_count) {
   /* Allocate space for new mmap entry */
-  mmap_entry_t *entry = (mmap_entry_t *)malloc(sizeof(mmap_entry_t));
+  struct mmap_file *entry =
+      (struct mmap_file *)malloc(sizeof(struct mmap_file));
   if (!entry)
     return NULL;
   /* Initialize the entry if malloc success */
-  entry->id = thread_current()->mapid_cnt++;
-  entry->addr = addr;
+  entry->mapid = thread_current()->mapid_cnt++;
+  entry->base = addr;
   entry->file = file;
-  entry->page_count = page_count;
   return entry;
 }
 
@@ -560,32 +560,38 @@ static mapid_t mmap(int fd, void *addr) {
   uint32_t real_bytes = size;
   uint32_t zero_bytes = (PGSIZE - real_bytes % PGSIZE) % PGSIZE;
   int page_conut = (real_bytes + zero_bytes) / PGSIZE;
-  mmap_entry_t *entry = new_mmap_entry(addr, file, page_conut);
+  struct mmap_file *entry = new_mmap_entry(addr, file, page_conut);
   if (!lazy_load(file, 0, addr, real_bytes, zero_bytes, true)) {
     free(entry);
     return -1;
   }
   list_push_back(&cur->mmap_list, &entry->elem);
-  return entry->id;
+  return entry->mapid;
 }
 
-static free_mmap_entry(mmap_entry_t *entry) {
+static void free_mmap_entry(struct mmap_file *entry) {
   struct thread *cur = thread_current();
-  void *addr = entry->addr;
-  for (int cur_page = 0; cur_page < entry->page_count; cur_page++) {
-    struct sup_page_table_entry *spte = find_spte(addr);
-    if (spte) {
-      if (pagedir_is_dirty) {
-        acquire_file_lock();
-        file_seek(spte->file, spte->offset);
-        file_write(spte->file, addr, spte->read_bytes);
-        release_file_lock();
-      }
-      if (pagedir_get_page(cur->pagedir, spte->uaddr)) {
-        // TODO:
-      }
+  void *addr = entry->base;
+  struct sup_page_table_entry *spte = find_spte(addr);
+  if (spte) {
+    if (pagedir_is_dirty) {
+      acquire_file_lock();
+      file_seek(spte->file, spte->offset);
+      file_write(spte->file, addr, spte->read_bytes);
+      release_file_lock();
     }
+    if (pagedir_get_page(cur->pagedir, spte->uaddr)) {
+      frame_free(pagedir_get_page(cur->pagedir, spte->uaddr));
+      pagedir_clear_page(cur->pagedir, spte->uaddr);
+    }
+    hash_delete(&cur->sup_page_table, &spte->elem);
+
+    addr += PGSIZE;
   }
+  acquire_file_lock();
+  file_close(entry->file);
+  release_file_lock();
+  free(entry);
 }
 
 void munmap(mapid_t mapping) {
@@ -593,9 +599,11 @@ void munmap(mapid_t mapping) {
   struct list_elem *e;
   for (e = list_begin(&cur->mmap_list); e != list_end(&cur->mmap_list);
        e = list_next(e)) {
-    mmap_entry_t *entry = list_entry(e, mmap_entry_t, elem);
-    if (entry->id == mapping) {
-      // TODO:
+    struct mmap_file *entry = list_entry(e, struct mmap_file, elem);
+    if (entry->mapid == mapping) {
+      list_remove(e);
+      free_mmap_entry(entry);
+      return;
     }
   }
 }
