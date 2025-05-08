@@ -35,9 +35,9 @@ void swap_in(size_t swap_index, void *page) {
     block_read(swap_block, swap_index * SECTORS_PER_PAGE + i,
                page + i * BLOCK_SECTOR_SIZE);
 
-  lock_release(&swap_lock);
+  bitmap_set(swap_bitmap, swap_index, false);
 
-  swap_free(swap_index);
+  lock_release(&swap_lock);
 }
 
 /* Swap out a page. */
