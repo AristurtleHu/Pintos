@@ -573,7 +573,11 @@ static void free_mmap_entry(struct mmap_file *entry) {
   struct thread *cur = thread_current();
   void *addr = entry->base;
   struct sup_page_table_entry *spte = find_spte(addr);
-  for (off_t i = 0; i < file_length(entry->file); i += PGSIZE) {
+  int32_t size = file_length(entry->file);
+  uint32_t real_bytes = size;
+  uint32_t zero_bytes = (PGSIZE - real_bytes % PGSIZE) % PGSIZE;
+  int page_conut = (real_bytes + zero_bytes) / PGSIZE;
+  for (int i = 0; i < page_conut; ++i) {
     if (spte) {
       if (pagedir_is_dirty(cur->pagedir, spte->uaddr)) {
         acquire_file_lock();
