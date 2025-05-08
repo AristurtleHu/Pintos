@@ -145,8 +145,7 @@ static void page_fault(struct intr_frame *f) {
 
   void *esp = f->esp;
 
-  /* If a page fault occurs in kernel mode,
-     use the esp saved in syscall. */
+  /* Kernel mode, save the esp */
 #ifdef VM
   if (!user)
     esp = thread_current()->esp;
@@ -157,7 +156,7 @@ static void page_fault(struct intr_frame *f) {
   /* Error */
   if (!fault_addr || !not_present || (is_kernel_vaddr(fault_addr) && user)) {
 
-    // user error
+    // kernel error
     if (!user) {
       f->eip = (void *)f->eax;
       f->eax = -1;
