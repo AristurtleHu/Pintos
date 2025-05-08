@@ -520,8 +520,10 @@ static void close(int fd) {
 static bool check_overlaps(void *addr, int size) {
   if (addr == NULL)
     return false;
+
   if (size < 0)
     return false;
+
   struct thread *cur = thread_current();
   for (int i = size; i >= 0; i -= PGSIZE) {
     if (find_spte(addr) || pagedir_get_page(cur->pagedir, addr))
@@ -538,6 +540,7 @@ static struct mmap_file *new_mmap_entry(void *addr, struct file *file,
       (struct mmap_file *)malloc(sizeof(struct mmap_file));
   if (!entry)
     return NULL;
+
   /* Initialize the entry if malloc success */
   entry->mapid = thread_current()->mapid_cnt++;
   entry->base = addr;
@@ -548,23 +551,28 @@ static struct mmap_file *new_mmap_entry(void *addr, struct file *file,
 static mapid_t mmap(int fd, void *addr) {
   if (fd == STDIN || fd == STDOUT)
     return -1;
+
   struct thread_file *thread_file = find_file(fd);
-  int32_t size = 0;
   if (thread_file == NULL)
     return -1;
+
+  int32_t size = 0;
   size = file_length(thread_file->file);
   if (!size)
     return -1;
+
   acquire_file_lock();
   struct file *file = file_reopen(thread_file->file);
   release_file_lock();
   if (file == NULL)
     return -1;
+
   struct thread *cur = thread_current();
   if (check_overlaps(addr, size) == false) {
     file_close(file); // ?
     return -1;
   }
+
   uint32_t real_bytes = size;
   uint32_t zero_bytes = (PGSIZE - real_bytes % PGSIZE) % PGSIZE;
   int page_conut = (real_bytes + zero_bytes) / PGSIZE;
@@ -584,6 +592,7 @@ static void free_mmap_entry(struct mmap_file *entry) {
   uint32_t real_bytes = size;
   uint32_t zero_bytes = (PGSIZE - real_bytes % PGSIZE) % PGSIZE;
   int page_conut = (real_bytes + zero_bytes) / PGSIZE;
+
   for (int i = 0; i < page_conut; ++i) {
     struct sup_page_table_entry *spte = find_spte(addr);
     if (spte) {
@@ -593,10 +602,12 @@ static void free_mmap_entry(struct mmap_file *entry) {
         file_write(spte->file, addr, spte->read_bytes);
         release_file_lock();
       }
+
       if (pagedir_get_page(cur->pagedir, spte->uaddr)) {
         frame_free(pagedir_get_page(cur->pagedir, spte->uaddr));
         pagedir_clear_page(cur->pagedir, spte->uaddr);
       }
+
       hash_delete(&cur->sup_page_table, &spte->elem);
       addr += PGSIZE;
     }
