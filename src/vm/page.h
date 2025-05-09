@@ -20,14 +20,16 @@ struct sup_page_table_entry {
   void *kaddr;           // Kernel virtual address
   struct hash_elem elem; // Hash element
 
-  bool writable;           // Is page writable
+  bool writable;           // Is page write or read
   enum sup_page_type type; // Type of page
 
+  // file use
   struct file *file;   // File to load
   off_t offset;        // Offset in file
   uint32_t read_bytes; // Number of bytes to read
   uint32_t zero_bytes; // Number of bytes to zero
 
+  // swap use
   struct lock spte_lock; // Lock for waiting swap
   size_t swap_index;     // Swap index
 };
