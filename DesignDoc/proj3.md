@@ -4,9 +4,9 @@
 
 Please provide the details for your group below, including your group's name and the names and email addresses of all members.
 
-- **Group Name**: *[Enter your group name here]*
+- **Group Name**: *boeing*
 
-- **Member 1**: Renyi Yang `<email@domain.example>`
+- **Member 1**: Renyi Yang `<yangry2023@shanghaitech.edu.cn>`
 
 - **Member 2**: Jiaxing Wu `<wujx2023@shanghaitech.edu.cn>`
 
@@ -18,7 +18,7 @@ Please provide the details for your group below, including your group's name and
 
 > If you have any preliminary comments on your submission, notes for the TAs, or extra credit, please give them here.
 
-*Your answer here.*
+TODO: add the link to tutorial ppt.
 
 
 
@@ -30,18 +30,57 @@ Please provide the details for your group below, including your group's name and
 
 > **A1:** Copy here the declaration of each new or changed `struct` or struct member, global or static variable, `typedef`, or enumeration. Identify the purpose of each in 25 words or less.
 
-*Your answer here.*
 
+```C
+enum sup_page_type {
+  ALL_ZERO,  // Page (all zero)
+  FROM_FILE, // Page from filesys
+  FRAME,     // Page on frame (user stack)
+};
+
+struct sup_page_table_entry {
+  void *uaddr;           // User virtual address
+  void *kaddr;           // Kernel virtual address
+  struct hash_elem elem; // Hash element
+
+  bool writable;           // Is page write or read
+  enum sup_page_type type; // Type of page
+
+  // file use
+  struct file *file;   // File to load
+  off_t offset;        // Offset in file
+  uint32_t read_bytes; // Number of bytes to read
+  uint32_t zero_bytes; // Number of bytes to zero
+
+  // swap use
+  struct lock spte_lock; // Lock for waiting swap
+  size_t swap_index;     // Swap index
+};
+
+struct frame_table_entry {
+  void *kaddr;                       // Kernel address
+  struct sup_page_table_entry *spte; // Linked supplementary page table entry
+  struct thread *owner;              // assciated thread
+
+  bool pinned;           // Used to prevent a frame from being evicted
+  struct list_elem elem; // List element
+};
+```
 
 
 ### Algorithms
 
 > **A2:** In a few paragraphs, describe your code for accessing the data stored in the SPT about a given page.
 
-To access the metadata stored in my Supplemental Page Table (SPT) for a given user virtual page `uaddr`, I use the `find_spte(uaddr)` function. This function first aligns the `uaddr` to its page boundary using `pg_round_down()`. It then uses this page-aligned address as a key to search the current thread's `sup_page_table` (which is a hash table) via `hash_find()`. If a `struct hash_elem` is found, `hash_entry()` is used to retrieve the corresponding `struct sup_page_table_entry` pointer; otherwise, if no entry exists for that `uaddr`, `NULL` is returned. This `find_spte()` function is the central method used throughout my virtual memory system to look up page-specific information.
+To access the metadata stored in my SPT for a given user virtual page `uaddr`, I use the `find_spte(uaddr)` function. 
 
-> **A3:** How does your code coordinate accessed and dirty bits between kernel and user virtual addresses that alias a single frame, or alternatively how do you avoid the issue?
+This function first aligns the `uaddr` to its page boundary using `pg_round_down()`. It then uses this page-aligned address as a key to search the current thread's `sup_page_table` (which is a hash table) via `hash_find()`. If a `struct hash_elem` is found, `hash_entry()` is used to retrieve the corresponding `struct sup_page_table_entry` pointer; otherwise, if no entry exists for that `uaddr`, `NULL` is returned. This `find_spte()` function is the central method used throughout my virtual memory system to look up page-specific information.
 
+Next, we can access all metadata about this structure.
+
+> **A3:** How does your code coordinate accessed and dirty bits between kernel and user virtual addresses that alias a single frame, or alternatively how do you avoid the issue? 
+
+TODO:
 My system coordinates accessed (A) and dirty (D) bits primarily by relying on the CPU to set these bits in the user process's hardware Page Table Entry (PTE) upon access to a user virtual address (`uaddr`). Kernel routines, such as `evict_frame` for page replacement or `munmap` for writing back data, then query the status of these bits directly from the user's PTE using functions like `pagedir_is_accessed(owner_pagedir, uaddr)` and `pagedir_is_dirty(owner_pagedir, uaddr)`. When the kernel writes to a frame via its kernel address `kaddr` (e.g., during `load_page`), the page is populated but is considered clean from the user's perspective until an actual user write to `uaddr` sets the D-bit. For specific kernel operations that logically "dirty" a page on behalf of the user (like `stack_grow` initializing a new, writable stack page), I explicitly call `pagedir_set_dirty(pagedir, uaddr, true)` on the user's PTE to maintain consistency, thereby largely avoiding A/D bit aliasing issues by focusing on the user virtual address's PTE state.
 
 ### Synchronization
@@ -117,38 +156,23 @@ My system handles access to paged-out user memory during system calls primarily 
 ### Data Structures
 
 > **C1:** Copy here the declaration of each new or changed `struct` or struct member, global or static variable, `typedef`, or enumeration. Identify the purpose of each in 25 words or less.
-```
+
+```C
+typedef int mapid_t; /* A type for unique memory mapping identifiers. */
+
 struct thread{
   struct hash sup_page_table; /* Supplementary page table */
   void *esp;                  /* User sp for page fault */
   struct list mmap_list;      /* List of files mapped to memory */
   mapid_t mapid_cnt;          /* Mapid count */
 };
+
 /* The element of list mmap */
 struct mmap_file {
   mapid_t mapid;         /* Mapping id */
   struct file *file;     /* File pointer */
   void *base;            /* Base address of the mapped file */
   struct list_elem elem; /* List element */
-};
-
-typedef int mapid_t; /*A type for unique memory mapping identifiers.*/
-
-struct sup_page_table_entry {
-  void *uaddr;           // User virtual address
-  void *kaddr;           // Kernel virtual address
-  struct hash_elem elem; // Hash element
-
-  bool writable;           // Is page writable
-  enum sup_page_type type; // Type of page
-
-  struct file *file;   // File to load
-  off_t offset;        // Offset in file
-  uint32_t read_bytes; // Number of bytes to read
-  uint32_t zero_bytes; // Number of bytes to zero
-
-  struct lock spte_lock; // Lock for waiting swap
-  size_t swap_index;     // Swap index
 };
 ```
 
@@ -157,17 +181,21 @@ struct sup_page_table_entry {
 
 > **C2:** Describe how memory mapped files integrate into your virtual memory subsystem. Explain how the page fault and eviction processes differ between swap pages and other pages.
 
-* **Integration into Virtual Memory:**
-    When `mmap` is called, it invokes your `lazy_load` function for each page of the file to be mapped. `lazy_load` creates a Supplemental Page Table Entry (SPTE) which records the user virtual address (`uaddr`), page type (e.g., `PAGE_FILE` or `PAGE_ZERO`), a pointer to the backing `file`, the `offset` within that file, and the `read_bytes`/`zero_bytes` for that page. These SPTEs are stored in the thread's supplemental page table (a hash table). No physical frames are allocated at `mmap` time; data is loaded on demand (lazily) when a page fault occurs.
+#### Integration into Virtual Memory:
+    
+  When `mmap` is called, it invokes your `lazy_load` function for each page of the file to be mapped. `lazy_load` creates a Supplemental Page Table Entry which records the user virtual address (`uaddr`), page type (e.g., `PAGE_FILE` or `PAGE_ZERO`), a pointer to the backing `file`, the `offset` within that file, and the `read_bytes`/`zero_bytes` for that page. These SPTEs are stored in the thread's supplemental page table. No physical frames are allocated at `mmap` time; data is loaded on lazily when a page fault occurs.
 
-* **Page Fault Process - Key Data Source Differences:**
-    * **Swapped-Out Pages:** My `load_page` calls `swap_in` to retrieve content from the **swap disk slot** indicated in their Supplemental Page Table Entry (SPTE).
-    * **Memory-Mapped File (MMF) Pages (`PAGE_FILE` type, not in swap):** My `load_page` reads data directly from their **original backing file**, using location data from the SPTE.
-    * **New Anonymous Pages (e.g., `PAGE_ZERO`, initial `PAGE_STACK`):** These are typically provided a **fresh, zero-filled physical frame** rather than reading from a disk source.
+#### DIfference
 
-* **Eviction Process - Uniform Destination:**
-    * When my `evict_frame` function selects any victim page (be it MMF, stack, etc.), I clear its hardware page table mapping and update its SPTE. Then, I consistently call `swap_out()` to write the page's content to a **slot on the swap disk**, recording the `swap_index` in the SPTE.
-    * **Key Difference Implied:** My current eviction strategy sends all page types to the swap disk. This contrasts with common alternative strategies where dirty MMF pages might be written back to their original file and clean MMF pages simply discarded, reserving swap primarily for anonymous data.
+* Page Fault Process:
+    * Swapped-Out Pages: My `load_page` calls `swap_in` to retrieve content from the swap disk slot indicated in their Supplemental Page Table Entry.
+    * Memory-Mapped File (MMF) Pages (`PAGE_FILE` type, not in swap): My `load_page` reads data directly from their original backing file, using location data from the SPTE.
+    * New Anonymous Pages (e.g., `PAGE_ZERO`, initial `PAGE_STACK`): These are typically provided a fresh, zero-filled physical frame rather than reading from a disk source.
+
+* Eviction Process:
+    * When my `evict_frame` function selects any victim page (be it MMF, stack, etc.), I clear its hardware page table mapping and update its SPTE. Then, I consistently call `swap_out()` to write the page's content to a slot on the swap disk, recording the `swap_index` in the SPTE.
+
+My current eviction strategy sends all page types to the swap disk. This contrasts with common alternative strategies where dirty MMF pages might be written back to their original file and clean MMF pages simply discarded, reserving swap primarily for anonymous data.
 
 
 
@@ -176,11 +204,14 @@ struct sup_page_table_entry {
 To determine if a new file mapping, defined by a starting virtual `addr` and `file_size`, overlaps with an existing segment, my `mmap` system call typically invokes a helper function `check_overlaps(addr, file_size)`. This helper function iterates through each virtual page that the proposed new mapping would occupy. For every page address in this range, it queries my supplemental page table (SPT) by calling `find_spte()` and may also check the hardware page tables directly using `pagedir_get_page()`. If either of these checks indicates that any page within the proposed range is already in use (e.g., `find_spte()` returns an existing entry or `pagedir_get_page()` shows a current mapping), `check_overlaps` signals that an overlap has been detected (conventionally by returning `false`), which subsequently causes the main `mmap` system call to fail.
 
 
-### Rationale
+### Rationable
 
 > **C4:** Mappings created with `mmap` have similar semantics to those of data demand-paged from executables, except that `mmap` mappings are written back to their original files, not to swap. This implies that much of their implementation can be shared. Explain why your implementation either does or does not share much of the code for the two situations.
 
-In my implementation, memory-mapped files (MMF) and demand-paged data from executables **highly share core mechanisms**: both are managed using a common Supplemental Page Table Entry (SPTE) structure and utilize similar logic via my `lazy_load` function for their initial setup. Consequently, when a page fault occurs, my `load_page` function handles loading data from the backing file in a unified manner for both. **The primary divergence lies in the page eviction strategy:** while the ideal semantic for MMF dirty pages is to be written back to their original file upon eviction, my current `evict_frame` function uniformly writes all types of victim pages, including MMF pages, to the swap disk via `swap_out()`. However, the logic for writing dirty MMF pages back to their original file *is* already implemented within my `munmap` function, presenting an opportunity for this code to be reused or refactored into `evict_frame` in the future to enable a more differentiated eviction policy specifically for MMF pages, aligning more closely with the described semantics.
+In my implementation, memory-mapped files and demand-paged data from executables **highly share core mechanisms**: 
+Both are managed using a common Supplemental Page Table Entry (SPTE) structure and utilize similar logic via my `lazy_load` function for their initial setup. Consequently, when a page fault occurs, my `load_page` function handles loading data from the backing file in a unified manner for both. 
+
+**The primary divergence lies in the page eviction strategy:** while the ideal semantic for MMF dirty pages is to be written back to their original file upon eviction, my current `evict_frame` function uniformly writes all types of victim pages, including MMF pages, to the swap disk via `swap_out()`. However, the logic for writing dirty MMF pages back to their original file *is* already implemented within my `munmap` function, presenting an opportunity for this code to be reused or refactored into `evict_frame` in the future to enable a more differentiated eviction policy specifically for MMF pages, aligning more closely with the described semantics.
 
 
 ---
@@ -189,4 +220,4 @@ In my implementation, memory-mapped files (MMF) and demand-paged data from execu
 
 > Do you have any suggestions for the TAs to more effectively assist students, either for future quarters or the remaining projects? Any other comments?
 
-*Your answer here.*
+None.
