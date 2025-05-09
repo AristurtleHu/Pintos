@@ -67,7 +67,7 @@ bool lazy_load(struct file *file, off_t ofs, uint8_t *upage,
   if (page_read_bytes == 0)
     spte->type = ALL_ZERO;
   else
-    spte->type = FILESYS;
+    spte->type = FROM_FILE;
 
   lock_init(&spte->spte_lock);
 
@@ -151,7 +151,7 @@ bool load_page(void *fault_addr, bool pin) {
       break;
     }
 
-    case FILESYS: {
+    case FROM_FILE: {
       spte->kaddr = frame_alloc(PAL_USER, spte);
       if (spte->kaddr != NULL) {
         acquire_file_lock();
