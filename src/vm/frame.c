@@ -212,14 +212,11 @@ void *evict_frame(void) {
         pagedir_set_accessed(fte->owner->pagedir, fte->spte->uaddr, false);
 
       else {
-        enum intr_level old_level = intr_disable(); // critical section
         lock_acquire(&fte->spte->spte_lock);
 
         fte->spte->kaddr = NULL;
         pagedir_clear_page(fte->owner->pagedir, fte->spte->uaddr);
-
         list_remove(&fte->elem);
-        intr_set_level(old_level);
         break;
       }
     }
@@ -230,15 +227,9 @@ void *evict_frame(void) {
   if (fte == NULL)
     return NULL;
 
-  if (fte->spte->type == PAGE_MMAP &&
-      pagedir_is_dirty(fte->owner->pagedir, fte->spte->uaddr))
-    write_file(fte);
-
-  else
-    fte->spte->swap_index = swap_out(fte->kaddr);
+  fte->spte->swap_index = swap_out(fte->kaddr);
 
   lock_release(&fte->spte->spte_lock);
-
   void *kaddr = fte->kaddr;
   free(fte);
 

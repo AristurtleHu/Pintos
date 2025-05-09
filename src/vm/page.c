@@ -155,6 +155,7 @@ bool load_page(void *fault_addr, bool pin) {
       spte->kaddr = frame_alloc(PAL_USER, spte);
       if (spte->kaddr != NULL) {
         acquire_file_lock();
+
         file_seek(spte->file, spte->offset);
         if (file_read(spte->file, spte->kaddr, spte->read_bytes) !=
             (int)spte->read_bytes) {
@@ -163,31 +164,7 @@ bool load_page(void *fault_addr, bool pin) {
           frame_free(spte->kaddr);
           return false;
         }
-        release_file_lock();
-        memset(spte->kaddr + spte->read_bytes, 0, spte->zero_bytes);
-      } else {
-        lock_release(&spte->spte_lock);
-        return false;
-      }
 
-      break;
-    }
-
-    case PAGE_STACK:
-      break;
-
-    case PAGE_MMAP: {
-      spte->kaddr = frame_alloc(PAL_USER, spte);
-      if (spte->kaddr != NULL) {
-        acquire_file_lock();
-        file_seek(spte->file, spte->offset);
-        if (file_read(spte->file, spte->kaddr, spte->read_bytes) !=
-            (int)spte->read_bytes) {
-          release_file_lock();
-          lock_release(&spte->spte_lock);
-          frame_free(spte->kaddr);
-          return false;
-        }
         release_file_lock();
         memset(spte->kaddr + spte->read_bytes, 0, spte->zero_bytes);
       } else {
@@ -199,7 +176,7 @@ bool load_page(void *fault_addr, bool pin) {
     }
 
     default:
-      NOT_REACHED();
+      break;
     }
   }
 
@@ -215,25 +192,6 @@ bool load_page(void *fault_addr, bool pin) {
   lock_release(&spte->spte_lock);
 
   return true;
-}
-
-/* Free the page table entry. */
-void free_page(void *uaddr) {
-  struct sup_page_table_entry *spte = find_spte(uaddr);
-  if (spte == NULL)
-    return;
-
-  if (spte->swap_index != (size_t)-1)
-    swap_free(spte->swap_index);
-  else if (spte->kaddr != NULL)
-    frame_free(spte->kaddr);
-
-  hash_delete(&thread_current()->sup_page_table, &spte->elem);
-  uint32_t *pd = thread_current()->pagedir;
-  pagedir_clear_page(pd, spte->uaddr);
-  pagedir_set_dirty(pd, spte->uaddr, false);
-  pagedir_set_accessed(pd, spte->uaddr, false);
-  free(spte);
 }
 
 hash_action_func process_free_page;

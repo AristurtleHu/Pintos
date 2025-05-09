@@ -13,7 +13,6 @@ enum sup_page_type {
   PAGE_ZERO,  // All zero page
   PAGE_FILE,  // Page from file
   PAGE_STACK, // Page on frame
-  PAGE_MMAP   // Memory mapped file
 };
 
 struct sup_page_table_entry {
@@ -39,7 +38,6 @@ hash_hash_func page_table_hash;
 void *find_spte(const void *uaddr);
 
 bool load_page(void *fault_addr, bool pin);
-void free_page(void *uaddr);
 
 bool lazy_load(struct file *file, off_t ofs, uint8_t *upage,
                uint32_t page_read_bytes, uint32_t page_zero_bytes,
