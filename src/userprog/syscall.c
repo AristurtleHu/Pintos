@@ -598,6 +598,7 @@ static mapid_t mmap(int fd, void *addr) {
   struct mmap_file *mmap_entry = new_mmap_entry(addr, file);
 
   if (mmap_entry == NULL) {
+    file_close(file);
     release_file_lock();
     return -1;
   }
@@ -618,6 +619,7 @@ static mapid_t mmap(int fd, void *addr) {
     }
   }
   if (spte_fail_midway) {
+    file_close(file);
     free(mmap_entry);
     mmap_entry = NULL;
   } else {
@@ -628,53 +630,70 @@ static mapid_t mmap(int fd, void *addr) {
   return mapping;
 }
 
-/* Free a specific entry */
-static void free_mmap_entry(struct mmap_file *entry) {
-  struct thread *cur = thread_current();
-  void *addr = entry->base;
-  int32_t size = file_length(entry->file);
-  uint32_t real_bytes = size;
-  uint32_t zero_bytes = (PGSIZE - real_bytes % PGSIZE) % PGSIZE;
-  int page_conut = (real_bytes + zero_bytes) / PGSIZE;
+/* Unmap the file from the address space. */
+void munmap(mapid_t mapping_to_unmap) {
+  struct thread *cur_thread = thread_current();
+  struct list_elem *e;
+  struct mmap_file *found_mmap_entry = NULL;
 
-  for (int i = 0; i < page_conut; ++i) {
-    struct sup_page_table_entry *spte = find_spte(addr);
+  for (e = list_begin(&cur_thread->mmap_list);
+       e != list_end(&cur_thread->mmap_list); e = list_next(e)) {
+    struct mmap_file *current_entry = list_entry(e, struct mmap_file, elem);
+    if (current_entry->mapid == mapping_to_unmap) {
+      found_mmap_entry = current_entry;
+      list_remove(&current_entry->elem);
+      break;
+    }
+  }
+
+  if (found_mmap_entry == NULL) {
+    return;
+  }
+
+  void *current_page_addr = found_mmap_entry->base;
+  struct file *file_to_process = found_mmap_entry->file;
+
+  off_t original_file_size = file_length(file_to_process);
+  if (original_file_size < 0) {
+    original_file_size = 0;
+  }
+
+  uint32_t real_bytes_in_mapping = original_file_size;
+  uint32_t zero_bytes_padding =
+      (PGSIZE - real_bytes_in_mapping % PGSIZE) % PGSIZE;
+  int total_pages_in_mapping =
+      (real_bytes_in_mapping + zero_bytes_padding) / PGSIZE;
+  if (total_pages_in_mapping == 0 && real_bytes_in_mapping > 0) {
+    total_pages_in_mapping = 1;
+  }
+
+  for (int i = 0; i < total_pages_in_mapping; ++i) {
+    struct sup_page_table_entry *spte = find_spte(current_page_addr);
+
     if (spte) {
-      if (pagedir_is_dirty(cur->pagedir, spte->uaddr)) {
+      if (pagedir_is_dirty(cur_thread->pagedir, spte->uaddr)) {
         acquire_file_lock();
         file_seek(spte->file, spte->offset);
-        file_write(spte->file, addr, spte->read_bytes);
+        file_write(spte->file, current_page_addr, spte->read_bytes);
         release_file_lock();
       }
 
-      if (pagedir_get_page(cur->pagedir, spte->uaddr)) {
-        frame_free(pagedir_get_page(cur->pagedir, spte->uaddr));
-        pagedir_clear_page(cur->pagedir, spte->uaddr);
+      if (pagedir_get_page(cur_thread->pagedir, spte->uaddr)) {
+        frame_free(pagedir_get_page(cur_thread->pagedir, spte->uaddr));
+        pagedir_clear_page(cur_thread->pagedir, spte->uaddr);
       }
 
-      hash_delete(&cur->sup_page_table, &spte->elem);
-      addr += PGSIZE;
+      hash_delete(&cur_thread->sup_page_table, &spte->elem);
+      free(spte);
     }
+    current_page_addr = (void *)((char *)current_page_addr + PGSIZE);
   }
 
   acquire_file_lock();
-  file_close(entry->file);
+  file_close(file_to_process);
   release_file_lock();
-  free(entry);
-}
 
-/* Unmap the file from the address space. */
-void munmap(mapid_t mapping) {
-  struct thread *cur = thread_current();
+  free(found_mmap_entry);
 
-  for (struct list_elem *e = list_begin(&cur->mmap_list);
-       e != list_end(&cur->mmap_list); e = list_next(e)) {
-    struct mmap_file *entry = list_entry(e, struct mmap_file, elem);
-
-    if (entry->mapid == mapping) {
-      list_remove(e);
-      free_mmap_entry(entry);
-      return;
-    }
-  }
+  return;
 }
