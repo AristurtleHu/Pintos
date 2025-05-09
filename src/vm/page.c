@@ -65,9 +65,9 @@ bool lazy_load(struct file *file, off_t ofs, uint8_t *upage,
   spte->swap_index = (size_t)-1;
 
   if (page_read_bytes == 0)
-    spte->type = PAGE_ZERO;
+    spte->type = ALL_ZERO;
   else
-    spte->type = PAGE_FILE;
+    spte->type = FILESYS;
 
   lock_init(&spte->spte_lock);
 
@@ -92,7 +92,7 @@ bool stack_grow(void *fault_addr, bool pin) {
   }
 
   spte->writable = true;
-  spte->type = PAGE_STACK;
+  spte->type = FRAME;
   spte->file = NULL;
   spte->offset = 0;
   spte->read_bytes = 0;
@@ -141,7 +141,7 @@ bool load_page(void *fault_addr, bool pin) {
   } else {
 
     switch (spte->type) {
-    case PAGE_ZERO: {
+    case ALL_ZERO: {
       spte->kaddr = frame_alloc(PAL_USER | PAL_ZERO, spte);
       if (spte->kaddr == NULL) {
         lock_release(&spte->spte_lock);
@@ -151,7 +151,7 @@ bool load_page(void *fault_addr, bool pin) {
       break;
     }
 
-    case PAGE_FILE: {
+    case FILESYS: {
       spte->kaddr = frame_alloc(PAL_USER, spte);
       if (spte->kaddr != NULL) {
         acquire_file_lock();

@@ -10,9 +10,9 @@
 #define MAX_STACK_SIZE (1 << 22) // 4 MB
 
 enum sup_page_type {
-  PAGE_ZERO,  // All zero page
-  PAGE_FILE,  // Page from file
-  PAGE_STACK, // Page on frame
+  ALL_ZERO, // Page (all zero)
+  FILESYS,  // Page from filesys
+  FRAME,    // Page on frame (user stack)
 };
 
 struct sup_page_table_entry {
