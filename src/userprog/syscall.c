@@ -549,40 +549,79 @@ static struct mmap_file *new_mmap_entry(void *addr, struct file *file,
 }
 
 static mapid_t mmap(int fd, void *addr) {
+  /* Validate address. */
+  if (addr == NULL || pg_ofs(addr) != 0)
+    return -1;
+
+  /* Validate fd. */
   if (fd == STDIN || fd == STDOUT)
     return -1;
 
-  struct thread_file *thread_file = find_file(fd);
-  if (thread_file == NULL)
+  struct thread_file *file_desc = find_file(fd);
+  if (file_desc == NULL)
     return -1;
 
-  int32_t size = 0;
-  size = file_length(thread_file->file);
-  if (!size)
-    return -1;
+  mapid_t mapping = -1;
+  struct file *file = NULL;
+  bool spte_fail_midway = false;
 
   acquire_file_lock();
-  struct file *file = file_reopen(thread_file->file);
-  release_file_lock();
+
+  /* Reopen file */
+  file = file_reopen(file_desc->file);
   if (file == NULL)
-    return -1;
+    goto done;
 
-  struct thread *cur = thread_current();
-  if (check_overlaps(addr, size) == false) {
-    file_close(file); // ?
-    return -1;
+  /* Validate file size. */
+  off_t file_size = file_length(file);
+  if (file_size <= 0) {
+    goto done;
   }
 
-  uint32_t real_bytes = size;
+  for (off_t i = 0; i < file_size; i += PGSIZE) {
+    if (find_spte((void *)((char *)addr + i)) != NULL) {
+      goto done;
+    }
+  }
+
+  uint32_t real_bytes = file_size;
   uint32_t zero_bytes = (PGSIZE - real_bytes % PGSIZE) % PGSIZE;
-  int page_conut = (real_bytes + zero_bytes) / PGSIZE;
-  struct mmap_file *entry = new_mmap_entry(addr, file, page_conut);
-  if (!lazy_load(file, 0, addr, real_bytes, zero_bytes, true)) {
-    free(entry);
-    return -1;
+  int page_count = (real_bytes + zero_bytes) / PGSIZE;
+  if (page_count == 0 && real_bytes != 0)
+    page_count = 1;
+
+  struct mmap_file *mmap_entry = new_mmap_entry(addr, file, page_count);
+
+  if (mmap_entry == NULL) {
+    goto done;
   }
-  list_push_back(&cur->mmap_list, &entry->elem);
-  return entry->mapid;
+
+  for (int i = 0; i < page_count; ++i) {
+    void *cur_uaddr = addr + i * PGSIZE;
+    off_t cur_ofs = i * PGSIZE;
+    uint32_t cur_read_bytes = 0;
+    if (cur_ofs < real_bytes) {
+      cur_read_bytes =
+          (real_bytes - cur_ofs < PGSIZE) ? real_bytes - cur_ofs : PGSIZE;
+    }
+    uint32_t cur_zero_bytes = PGSIZE - cur_read_bytes;
+    if (!lazy_load(file, cur_ofs, cur_uaddr, cur_read_bytes, cur_zero_bytes,
+                   true)) {
+      spte_fail_midway = true;
+      break;
+    }
+  }
+  if (spte_fail_midway) {
+    free(mmap_entry);
+    mmap_entry = NULL;
+  } else {
+    list_push_back(&thread_current()->mmap_list, &mmap_entry->elem);
+    mapping = mmap_entry->mapid;
+  }
+
+done:
+  release_file_lock(); // 在函数末尾释放锁
+  return mapping;      // 返回 mapid (-1 表示失败，成功则返回分配的 id)
 }
 
 static void free_mmap_entry(struct mmap_file *entry) {
