@@ -35,17 +35,15 @@ unsigned page_table_hash(const struct hash_elem *e_, void *aux UNUSED) {
   return hash_bytes(&e->uaddr, sizeof(e->uaddr));
 }
 
-/* Returns the page table entry for the given user address. */
+/* Find the page table entry for uaddr. */
 void *find_spte(const void *uaddr) {
   struct sup_page_table_entry spte;
   spte.uaddr = pg_round_down(uaddr);
 
   struct hash_elem *e =
       hash_find(&thread_current()->sup_page_table, &spte.elem);
-  if (e == NULL)
-    return NULL;
 
-  return hash_entry(e, struct sup_page_table_entry, elem);
+  return e == NULL ? NULL : hash_entry(e, struct sup_page_table_entry, elem);
 }
 
 /* Lazy loads a page from file. */
@@ -59,8 +57,13 @@ bool lazy_load(struct file *file, off_t ofs, uint8_t *upage,
 
   spte->uaddr = upage;
   spte->kaddr = NULL;
-
+  spte->file = file;
+  spte->offset = ofs;
+  spte->read_bytes = page_read_bytes;
+  spte->zero_bytes = page_zero_bytes;
   spte->writable = writable;
+  spte->swap_index = (size_t)-1;
+
   if (page_read_bytes == 0)
     spte->type = PAGE_ZERO;
   else
@@ -68,14 +71,7 @@ bool lazy_load(struct file *file, off_t ofs, uint8_t *upage,
 
   lock_init(&spte->spte_lock);
 
-  spte->file = file;
-  spte->offset = ofs;
-  spte->read_bytes = page_read_bytes;
-  spte->zero_bytes = page_zero_bytes;
-
   hash_insert(&thread_current()->sup_page_table, &spte->elem);
-
-  spte->swap_index = (size_t)-1;
 
   return true;
 }
@@ -97,15 +93,13 @@ bool stack_grow(void *fault_addr, bool pin) {
 
   spte->writable = true;
   spte->type = PAGE_STACK;
-
-  lock_init(&spte->spte_lock);
-
   spte->file = NULL;
   spte->offset = 0;
   spte->read_bytes = 0;
   spte->zero_bytes = PGSIZE;
-
   spte->swap_index = (size_t)-1;
+
+  lock_init(&spte->spte_lock);
 
   if (!install_page(spte->uaddr, spte->kaddr, true)) {
     frame_free(spte->kaddr);
