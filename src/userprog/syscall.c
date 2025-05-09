@@ -1,5 +1,5 @@
-#define USERPROG // TODO: Remove this line when finished
-#define VM       // TODO: Remove this line when finished
+// #define USERPROG // TODO: Remove this line when finished
+// #define VM       // TODO: Remove this line when finished
 
 #include "userprog/syscall.h"
 #include "devices/input.h"
@@ -517,6 +517,7 @@ static void close(int fd) {
   release_file_lock();
 }
 
+/* Check if the address range is valid. */
 static bool check_overlaps(void *addr, int size) {
   if (addr == NULL)
     return false;
@@ -533,8 +534,8 @@ static bool check_overlaps(void *addr, int size) {
   return true;
 }
 
-static struct mmap_file *new_mmap_entry(void *addr, struct file *file,
-                                        int page_count) {
+/* Make a new mmap entry */
+static struct mmap_file *new_mmap_entry(void *addr, struct file *file) {
   /* Allocate space for new mmap entry */
   struct mmap_file *entry =
       (struct mmap_file *)malloc(sizeof(struct mmap_file));
@@ -548,6 +549,7 @@ static struct mmap_file *new_mmap_entry(void *addr, struct file *file,
   return entry;
 }
 
+/* Map the file to the address space. */
 static mapid_t mmap(int fd, void *addr) {
   /* Validate address. */
   if (addr == NULL || pg_ofs(addr) != 0)
@@ -593,7 +595,7 @@ static mapid_t mmap(int fd, void *addr) {
   if (page_count == 0 && real_bytes != 0)
     page_count = 1;
 
-  struct mmap_file *mmap_entry = new_mmap_entry(addr, file, page_count);
+  struct mmap_file *mmap_entry = new_mmap_entry(addr, file);
 
   if (mmap_entry == NULL) {
     release_file_lock();
@@ -604,7 +606,7 @@ static mapid_t mmap(int fd, void *addr) {
     void *cur_uaddr = addr + i * PGSIZE;
     off_t cur_ofs = i * PGSIZE;
     uint32_t cur_read_bytes = 0;
-    if (cur_ofs < real_bytes) {
+    if ((uint32_t)cur_ofs < real_bytes) {
       cur_read_bytes =
           (real_bytes - cur_ofs < PGSIZE) ? real_bytes - cur_ofs : PGSIZE;
     }
@@ -626,6 +628,7 @@ static mapid_t mmap(int fd, void *addr) {
   return mapping;
 }
 
+/* Free a specific entry */
 static void free_mmap_entry(struct mmap_file *entry) {
   struct thread *cur = thread_current();
   void *addr = entry->base;
@@ -660,6 +663,7 @@ static void free_mmap_entry(struct mmap_file *entry) {
   free(entry);
 }
 
+/* Unmap the file from the address space. */
 void munmap(mapid_t mapping) {
   struct thread *cur = thread_current();
 
