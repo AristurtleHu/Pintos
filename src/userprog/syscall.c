@@ -569,19 +569,22 @@ static mapid_t mmap(int fd, void *addr) {
 
   /* Reopen file */
   file = file_reopen(file_desc->file);
-  if (file == NULL)
-    goto done;
+  if (file == NULL) {
+    release_file_lock();
+    return -1;
+  }
 
   /* Validate file size. */
   off_t file_size = file_length(file);
   if (file_size <= 0) {
-    goto done;
+    release_file_lock();
+    return -1;
   }
 
-  for (off_t i = 0; i < file_size; i += PGSIZE) {
-    if (find_spte((void *)((char *)addr + i)) != NULL) {
-      goto done;
-    }
+  /* Check if the address range is valid. */
+  if (!check_overlaps(addr, file_size)) {
+    release_file_lock();
+    return -1;
   }
 
   uint32_t real_bytes = file_size;
@@ -593,7 +596,8 @@ static mapid_t mmap(int fd, void *addr) {
   struct mmap_file *mmap_entry = new_mmap_entry(addr, file, page_count);
 
   if (mmap_entry == NULL) {
-    goto done;
+    release_file_lock();
+    return -1;
   }
 
   for (int i = 0; i < page_count; ++i) {
@@ -618,10 +622,8 @@ static mapid_t mmap(int fd, void *addr) {
     list_push_back(&thread_current()->mmap_list, &mmap_entry->elem);
     mapping = mmap_entry->mapid;
   }
-
-done:
-  release_file_lock(); // 在函数末尾释放锁
-  return mapping;      // 返回 mapid (-1 表示失败，成功则返回分配的 id)
+  release_file_lock();
+  return mapping;
 }
 
 static void free_mmap_entry(struct mmap_file *entry) {
