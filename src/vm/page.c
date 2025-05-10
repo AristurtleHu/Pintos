@@ -1,5 +1,5 @@
-#define VM
-#define USERPROG // TODO: Remove this line when finished
+// #define VM
+// #define USERPROG // TODO: Remove this line when finished
 
 #include "vm/page.h"
 #include "filesys/filesys.h"
@@ -15,6 +15,11 @@
 #include "vm/swap.h"
 #include <stdio.h>
 #include <string.h>
+
+#define swap_default (size_t)-1
+
+bool load_zero(struct sup_page_table_entry *spte);
+bool load_file(struct sup_page_table_entry *spte);
 
 /* Hash less func */
 bool page_table_less(const struct hash_elem *a_, const struct hash_elem *b_,
@@ -62,7 +67,7 @@ bool lazy_load(struct file *file, off_t ofs, uint8_t *upage,
   spte->read_bytes = page_read_bytes;
   spte->zero_bytes = page_zero_bytes;
   spte->writable = writable;
-  spte->swap_index = (size_t)-1;
+  spte->swap_index = swap_default;
 
   if (page_read_bytes == 0)
     spte->type = ALL_ZERO;
@@ -116,6 +121,43 @@ bool stack_grow(void *fault_addr, bool pin) {
   return true;
 }
 
+/* Load a page with all zeroes. */
+bool load_zero(struct sup_page_table_entry *spte) {
+  spte->kaddr = frame_alloc(PAL_USER | PAL_ZERO, spte);
+  if (spte->kaddr == NULL) {
+    lock_release(&spte->spte_lock);
+    return false;
+  }
+  return true;
+}
+
+/* Load a page from file. */
+bool load_file(struct sup_page_table_entry *spte) {
+  spte->kaddr = frame_alloc(PAL_USER, spte);
+  if (spte->kaddr == NULL) {
+    lock_release(&spte->spte_lock);
+    return false;
+  }
+
+  acquire_file_lock();
+
+  file_seek(spte->file, spte->offset);
+  // read bytes from the file
+  int read = file_read(spte->file, spte->kaddr, spte->read_bytes);
+  if (read != (int)spte->read_bytes) {
+    release_file_lock();
+    lock_release(&spte->spte_lock);
+    frame_free(spte->kaddr);
+    return false;
+  }
+
+  release_file_lock();
+
+  // zero the rest
+  memset(spte->kaddr + spte->read_bytes, 0, spte->zero_bytes);
+  return true;
+}
+
 /* Load a page from swap or file. */
 bool load_page(void *fault_addr, bool pin) {
   struct sup_page_table_entry *spte = find_spte(fault_addr);
@@ -124,6 +166,7 @@ bool load_page(void *fault_addr, bool pin) {
 
   lock_acquire(&spte->spte_lock);
 
+  // already loaded
   if (spte->kaddr != NULL) {
     if (pin)
       frame_pin(spte->kaddr);
@@ -131,55 +174,29 @@ bool load_page(void *fault_addr, bool pin) {
     return true;
   }
 
-  if (spte->swap_index != (size_t)-1) {
+  // need swap load
+  else if (spte->swap_index != swap_default) {
     spte->kaddr = frame_alloc(PAL_USER, spte);
     if (spte->kaddr == NULL)
       return false;
 
     swap_in(spte->swap_index, spte->kaddr);
-    spte->swap_index = (size_t)-1;
-  } else {
-
-    switch (spte->type) {
-    case ALL_ZERO: {
-      spte->kaddr = frame_alloc(PAL_USER | PAL_ZERO, spte);
-      if (spte->kaddr == NULL) {
-        lock_release(&spte->spte_lock);
-        return false;
-      }
-
-      break;
-    }
-
-    case FROM_FILE: {
-      spte->kaddr = frame_alloc(PAL_USER, spte);
-      if (spte->kaddr != NULL) {
-        acquire_file_lock();
-
-        file_seek(spte->file, spte->offset);
-        if (file_read(spte->file, spte->kaddr, spte->read_bytes) !=
-            (int)spte->read_bytes) {
-          release_file_lock();
-          lock_release(&spte->spte_lock);
-          frame_free(spte->kaddr);
-          return false;
-        }
-
-        release_file_lock();
-        memset(spte->kaddr + spte->read_bytes, 0, spte->zero_bytes);
-      } else {
-        lock_release(&spte->spte_lock);
-        return false;
-      }
-
-      break;
-    }
-
-    default:
-      break;
-    }
+    spte->swap_index = swap_default;
   }
 
+  // need file load (all zero)
+  else if (spte->type == ALL_ZERO) {
+    if (!load_zero(spte))
+      return false;
+  }
+
+  // need file load
+  else {
+    if (!load_file(spte))
+      return false;
+  }
+
+  // map
   if (!install_page(spte->uaddr, spte->kaddr, spte->writable)) {
     lock_release(&spte->spte_lock);
     frame_free(spte->kaddr);
@@ -201,7 +218,7 @@ void process_free_page(struct hash_elem *e, void *aux UNUSED) {
   struct sup_page_table_entry *spte =
       hash_entry(e, struct sup_page_table_entry, elem);
 
-  if (spte->swap_index != (size_t)-1)
+  if (spte->swap_index != swap_default)
     swap_free(spte->swap_index);
 
   free(spte);
