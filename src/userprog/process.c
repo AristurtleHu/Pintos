@@ -1,4 +1,4 @@
-// #define USERPROG // TODO: Remove this line when finished
+#define USERPROG // TODO: Remove this line when finished
 
 #include "userprog/process.h"
 #include "filesys/directory.h"
@@ -90,9 +90,13 @@ static void start_process(void *file_name_) {
   char *save_ptr;
   char *name = strtok_r(file_name, " ", &save_ptr);
 
+#ifdef VM
   acquire_file_lock();
   success = load(name, &if_.eip, &if_.esp);
   release_file_lock();
+#else
+  success = load(name, &if_.eip, &if_.esp);
+#endif
 
   if (success) {
     int argc = 0;
@@ -550,12 +554,31 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool setup_stack(void **esp) {
+#ifdef VM
+
   if (stack_grow(PHYS_BASE - PGSIZE, false)) {
     *esp = PHYS_BASE;
     return true;
   }
 
   return false;
+
+#else
+
+  uint8_t *kpage;
+  bool success = false;
+
+  kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+  if (kpage != NULL) {
+    success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
+    if (success)
+      *esp = PHYS_BASE;
+    else
+      palloc_free_page(kpage);
+  }
+  return success;
+
+#endif
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

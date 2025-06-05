@@ -1,5 +1,4 @@
-// #define USERPROG // TODO: Remove this line when finished
-// #define VM       // TODO: Remove this line when finished
+#define USERPROG // TODO: Remove this line when finished
 
 #include "userprog/syscall.h"
 #include "devices/input.h"
@@ -41,8 +40,11 @@ static int write(int, const void *, unsigned);
 static void seek(int, unsigned);
 static unsigned tell(int);
 static void close(int);
+
+#ifdef VM
 static mapid_t mmap(int, void *);
 static bool check_overlaps(void *addr, int size);
+#endif
 
 /* Find the file based on fd */
 static struct thread_file *find_file(int fd) {
@@ -231,6 +233,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
     break;
   }
 
+#ifdef VM
   case SYS_MMAP: {
     int fd = *(int *)check_address(f->esp + sizeof(int *));
     void *addr = *(void **)check_address(f->esp + 2 * sizeof(int *));
@@ -243,6 +246,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
     munmap(mapping);
     break;
   }
+#endif
 
   default:
     PANIC("Unknown system call.");
@@ -517,6 +521,8 @@ static void close(int fd) {
   release_file_lock();
 }
 
+#ifdef VM
+
 /* Check if the address range is valid. */
 static bool check_overlaps(void *addr, int size) {
   if (addr == NULL)
@@ -697,3 +703,5 @@ void munmap(mapid_t mapping_to_unmap) {
 
   return;
 }
+
+#endif
