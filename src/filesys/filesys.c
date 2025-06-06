@@ -89,16 +89,11 @@ static void do_format(void) {
 }
 
 bool filesys_chdir(const char *name) {
-  // 调用辅助函数打开目标目录
   struct dir *dir = dir_open_path(name);
-
-  // 如果路径无效或不是目录，则打开失败
-  if (dir == NULL) {
+  if (dir == NULL)
     return false;
-  }
 
-  // 切换当前工作目录（CWD）
-  dir_close(thread_current()->cwd); // 关闭旧的 CWD
-  thread_current()->cwd = dir;      // 设置新的 CWD
+  dir_close(thread_current()->cwd); // Close old
+  thread_current()->cwd = dir;      // Set new
   return true;
 }
