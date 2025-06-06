@@ -236,6 +236,11 @@ void process_exit(void) {
   page_table_free(&cur->sup_page_table);
 #endif
 
+#ifdef FILESYS
+  if (cur->dir != NULL)
+    dir_close(cur->dir);
+#endif
+
   /* Destroy the current process's page directory and switch back
    to the kernel-only page directory. */
   pd = cur->pagedir;

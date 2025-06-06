@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "list.h"
@@ -453,6 +454,10 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->parent = NULL;
   else
     t->parent = thread_current();
+#endif
+
+#ifdef FILESYS
+  t->dir = NULL;
 #endif
 
   old_level = intr_disable();

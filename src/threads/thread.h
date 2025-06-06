@@ -1,6 +1,7 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
 
+#include "filesys/directory.h"
 #include "hash.h"
 #include "list.h"
 #include "threads/synch.h"
@@ -127,6 +128,10 @@ struct thread {
   void *esp;                  /* User sp for page fault */
   struct list mmap_list;      /* List of files mapped to memory */
   mapid_t mapid_cnt;          /* Mapid count */
+#endif
+
+#ifdef FILESYS
+  struct dir *dir; /* The directory the current thread is in */
 #endif
 
   /* Owned by thread.c. */
