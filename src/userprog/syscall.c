@@ -331,13 +331,12 @@ static int write(int fd, const void *buffer, unsigned size) {
     putbuf(buffer, size);
     return size;
   } else {
-    if (isdir(fd))
-      exit(-1);
-
     struct thread_file *thread_file = find_file(fd);
-    if (thread_file == NULL || thread_file->dir != NULL) {
+    if (thread_file == NULL)
       return 0;
-    }
+    if (isdir(fd))
+      return -1;
+
     acquire_file_lock();
     int bytes_written = file_write(thread_file->file, buffer, size);
     release_file_lock();
@@ -493,6 +492,8 @@ static int filesize(int fd) {
   struct thread_file *thread_file = find_file(fd);
   if (thread_file == NULL)
     return -1;
+  if (isdir(fd))
+    return -1;
 
   acquire_file_lock();
   int size = file_length(thread_file->file);
@@ -520,6 +521,8 @@ static int read(int fd, void *buffer, unsigned size) {
     struct thread_file *thread_file = find_file(fd);
     if (thread_file == NULL)
       return -1;
+    if (isdir(fd))
+      return -1;
 
     acquire_file_lock();
     int bytes_read = file_read(thread_file->file, buffer, size);
@@ -544,6 +547,8 @@ static void seek(int fd, unsigned position) {
   struct thread_file *thread_file = find_file(fd);
   if (thread_file == NULL)
     return;
+  if (isdir(fd))
+    return;
 
   acquire_file_lock();
   file_seek(thread_file->file, position);
@@ -555,6 +560,8 @@ static void seek(int fd, unsigned position) {
 static unsigned tell(int fd) {
   struct thread_file *thread_file = find_file(fd);
   if (thread_file == NULL)
+    return -1;
+  if (isdir(fd))
     return -1;
 
   acquire_file_lock();
@@ -628,6 +635,8 @@ static mapid_t mmap(int fd, void *addr) {
 
   struct thread_file *file_desc = find_file(fd);
   if (file_desc == NULL)
+    return -1;
+  if (isdir(fd))
     return -1;
 
   mapid_t mapping = -1;
@@ -767,6 +776,8 @@ void munmap(mapid_t mapping_to_unmap) {
 
 #endif
 
+/* Changes the current working directory of the process to DIR.
+    Returns true if successful, false otherwise. */
 static bool chdir(const char *dir) {
   if (!check_str(dir, 15))
     return false;
@@ -777,6 +788,10 @@ static bool chdir(const char *dir) {
   return success;
 }
 
+/* Creates a directory named DIR. Returns true if successful, false
+    otherwise. A directory may be created regardless of whether it is
+    open or closed, and creating an open directory does not close it.
+    The directory is created with the initial size of 0 bytes. */
 static bool mkdir(const char *dir) {
   if (dir == NULL || *dir == '\0')
     return false;
@@ -790,6 +805,10 @@ static bool mkdir(const char *dir) {
   return success;
 }
 
+/* Reads a directory entry from the directory open as FD.
+    If successful, stores the name of the next entry in NAME
+    and returns true. If there are no more entries in the
+    directory, returns false. */
 static bool readdir(int fd, char *name) {
   if (!check_str(name, 15))
     return false;
@@ -804,6 +823,8 @@ static bool readdir(int fd, char *name) {
   return success;
 }
 
+/* Returns true if the file descriptor FD is a directory.
+    Returns false otherwise. */
 static bool isdir(int fd) {
   acquire_file_lock();
   struct thread_file *thread_file = find_file(fd);
@@ -819,6 +840,9 @@ static bool isdir(int fd) {
   return result;
 }
 
+/* Returns the inode number of the file open as FD.
+    Returns -1 if the file descriptor is invalid or
+    if the file does not have an inode. */
 static int inumber(int fd) {
   acquire_file_lock();
   int inode_number = -1;
