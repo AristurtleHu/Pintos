@@ -452,48 +452,36 @@ static bool remove(const char *file) {
     independently in separate calls to close and they do not share a
     file position. */
 static int open(const char *file) {
-  if (!check_str(file, 129)) // 建议使用 PATH_MAX 宏
-    return -1; // 注意：返回值类型是 int，返回 false (0) 可能会被误解为成功
+  if (!check_str(file, 129))
+    return -1;
 
   acquire_file_lock();
   struct file *file_open = filesys_open(file);
-  // 注意：此时我们还持有锁，直到所有文件系统操作完成
-
   if (file_open == NULL) {
-    release_file_lock(); // 打开失败，释放锁并返回
-    return -1;
-  }
-
-  // 2. 为文件描述符分配内存
-  struct thread_file *thread_file = malloc(sizeof(struct thread_file));
-  if (thread_file == NULL) {
-    file_close(file_open); // 内存分配失败，关闭已打开的文件
     release_file_lock();
     return -1;
   }
 
-  // 3. 【核心】检查 inode 并处理目录
-  struct inode *inode = file_get_inode(file_open);
-  if (inode != NULL && inode_is_directory(inode)) {
-    // 如果它是一个目录，则打开目录句柄
-    thread_file->dir = dir_open(inode);
-  } else {
-    // 如果是普通文件，则目录句柄为 NULL
-    thread_file->dir = NULL;
+  struct thread_file *thread_file = malloc(sizeof(struct thread_file));
+  if (thread_file == NULL) {
+    file_close(file_open);
+    release_file_lock();
+    return -1;
   }
 
-  // 4. 填充文件描述符结构体
+  struct inode *inode = file_get_inode(file_open);
+  if (inode != NULL && inode_is_directory(inode))
+    thread_file->dir = dir_open(inode);
+  else
+    thread_file->dir = NULL;
+
   struct thread *cur = thread_current();
   thread_file->fd = cur->fd++;
   thread_file->file = file_open;
 
-  // 5. 将文件描述符添加到当前线程的列表中
   list_push_back(&cur->files, &thread_file->elem);
 
-  // 所有操作完成，释放锁
   release_file_lock();
-
-  // 6. 返回新的文件描述符
   return thread_file->fd;
 }
 
@@ -547,8 +535,7 @@ static int read(int fd, void *buffer, unsigned size) {
     filling any unwritten gap with zeros. (However, in  Pintos files have a
     fixed length until project 4 is complete, so writes past end of file
     will return an error.) These semantics are implemented in the file
-    system and do not require any special effort in system call
-   implementation.
+    system and do not require any special effort in system call implementation.
  */
 static void seek(int fd, unsigned position) {
   struct thread_file *thread_file = find_file(fd);
@@ -778,9 +765,9 @@ void munmap(mapid_t mapping_to_unmap) {
 #endif
 
 static bool chdir(const char *dir) {
-  if (!check_str(dir, 15)) {
+  if (!check_str(dir, 15))
     return false;
-  }
+
   acquire_file_lock();
   bool success = filesys_chdir(dir);
   release_file_lock();
@@ -788,12 +775,12 @@ static bool chdir(const char *dir) {
 }
 
 static bool mkdir(const char *dir) {
-  if (dir == NULL || *dir == '\0') {
+  if (dir == NULL || *dir == '\0')
     return false;
-  }
-  if (!check_str(dir, 15)) {
+
+  if (!check_str(dir, 15))
     return false;
-  }
+
   acquire_file_lock();
   bool success = filesys_create(dir, 0, true);
   release_file_lock();
@@ -801,7 +788,9 @@ static bool mkdir(const char *dir) {
 }
 
 static bool readdir(int fd, char *name) {
-  check_str(name, 15);
+  if (!check_str(name, 15))
+    return false;
+
   acquire_file_lock();
   struct thread_file *thread_file = find_file(fd);
   bool success = false;
@@ -818,6 +807,7 @@ static bool isdir(int fd) {
   bool result = false;
   if (thread_file != NULL) {
     struct inode *inode = file_get_inode(thread_file->file);
+
     if (inode != NULL) {
       result = inode_is_directory(inode);
     }
