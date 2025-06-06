@@ -24,7 +24,7 @@ struct dir_entry {
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
-  return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+  return inode_create(sector, entry_cnt * sizeof(struct dir_entry), true);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -114,7 +114,8 @@ bool dir_lookup(const struct dir *dir, const char *name, struct inode **inode) {
    Returns true if successful, false on failure.
    Fails if NAME is invalid (i.e. too long) or a disk or memory
    error occurs. */
-bool dir_add(struct dir *dir, const char *name, block_sector_t inode_sector) {
+bool dir_add(struct dir *dir, const char *name, block_sector_t inode_sector,
+             bool is_dir) {
   struct dir_entry e;
   off_t ofs;
   bool success = false;

@@ -60,7 +60,7 @@ void inode_init(void) { list_init(&open_inodes); }
    device.
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
-bool inode_create(block_sector_t sector, off_t length) {
+bool inode_create(block_sector_t sector, off_t length, bool is_dir) {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
 
