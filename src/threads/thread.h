@@ -131,7 +131,6 @@ struct thread {
 #endif
 
 #ifdef FILESYS
-  struct dir *dir; /* The directory the current thread is in */
   struct dir *cwd; /* Current working directory */
 #endif
 
@@ -153,7 +152,7 @@ struct thread_file {
   int fd;                /* File descriptor */
   struct file *file;     /* File pointer */
   struct list_elem elem; /* List element */
-  struct dir *dir;       /* Directory pointer, if this is a directory */
+  struct dir *dir;       /* Directory pointer */
 };
 
 /* The element of list mmap */

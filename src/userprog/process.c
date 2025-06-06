@@ -237,8 +237,8 @@ void process_exit(void) {
 #endif
 
 #ifdef FILESYS
-  if (cur->dir != NULL)
-    dir_close(cur->dir);
+  if (cur->cwd != NULL)
+    dir_close(cur->cwd);
 #endif
 
   /* Destroy the current process's page directory and switch back
