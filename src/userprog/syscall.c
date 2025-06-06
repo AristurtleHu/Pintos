@@ -1,10 +1,13 @@
 #define USERPROG // TODO: Remove this line when finished
+#define FILESYS  // TODO: Remove this line when finished
 
 #include "userprog/syscall.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
+#include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
+#include "filesys/inode.h"
 #include "list.h"
 #include "threads/interrupt.h"
 #include "threads/malloc.h"
@@ -45,6 +48,12 @@ static void close(int);
 static mapid_t mmap(int, void *);
 static bool check_overlaps(void *addr, int size);
 #endif
+
+static bool chdir(const char *);
+static bool mkdir(const char *);
+static bool readdir(int, char *);
+static bool isdir(int);
+static int inumber(int);
 
 /* Find the file based on fd */
 static struct thread_file *find_file(int fd) {
@@ -247,6 +256,37 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
     break;
   }
 #endif
+
+  case SYS_CHDIR: {
+    const char *dir = *(const char **)check_address(f->esp + sizeof(int *));
+    f->eax = chdir(dir);
+    break;
+  }
+
+  case SYS_MKDIR: {
+    const char *dir = *(const char **)check_address(f->esp + sizeof(int *));
+    f->eax = mkdir(dir);
+    break;
+  }
+
+  case SYS_READDIR: {
+    int fd = *(int *)check_address(f->esp + sizeof(int *));
+    char *name = *(char **)check_address(f->esp + 2 * sizeof(int *));
+    f->eax = readdir(fd, name);
+    break;
+  }
+
+  case SYS_ISDIR: {
+    int fd = *(int *)check_address(f->esp + sizeof(int *));
+    f->eax = isdir(fd);
+    break;
+  }
+
+  case SYS_INUMBER: {
+    int fd = *(int *)check_address(f->esp + sizeof(int *));
+    f->eax = inumber(fd);
+    break;
+  }
 
   default:
     PANIC("Unknown system call.");
@@ -705,3 +745,13 @@ void munmap(mapid_t mapping_to_unmap) {
 }
 
 #endif
+
+static bool chdir(const char *name) {}
+
+static bool mkdir(const char *name) {}
+
+static bool readdir(int fd, char *name) {}
+
+static bool isdir(int fd) {}
+
+static int inumber(int fd) {}
