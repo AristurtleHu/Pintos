@@ -1,5 +1,5 @@
-#define USERPROG // TODO: Remove this line when finished
-#define FILESYS  // TODO: Remove this line when finished
+// #define USERPROG // TODO: Remove this line when finished
+// #define FILESYS  // TODO: Remove this line when finished
 
 #include "userprog/syscall.h"
 #include "devices/input.h"
