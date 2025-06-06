@@ -458,6 +458,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
 
 #ifdef FILESYS
   t->dir = NULL;
+  t->cwd = NULL; // Set the current working directory to root
 #endif
 
   old_level = intr_disable();

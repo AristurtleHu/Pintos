@@ -2,6 +2,8 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
+#include <limits.h>
 #include <list.h>
 #include <stdio.h>
 #include <string.h>
@@ -199,4 +201,70 @@ bool dir_readdir(struct dir *dir, char name[NAME_MAX + 1]) {
     }
   }
   return false;
+}
+
+struct dir *dir_open_path(const char *path) {
+  // 1. 创建路径字符串的可修改副本，因为 strtok_r 会修改原字符串
+  //    注意: char s[l+1] 是一个变长数组(VLA)，这是 C99 标准的功能。
+  int l = strlen(path);
+  char s[l + 1];
+  strlcpy(s, path, l + 1);
+
+  // 2. 根据是绝对路径还是相对路径，确定起始目录
+  struct dir *curr;
+  if (path[0] == '/') {
+    // 绝对路径，从根目录开始
+    curr = dir_open_root();
+  } else {
+    // 相对路径，从当前进程的工作目录开始
+    struct thread *t = thread_current();
+    if (t->cwd == NULL) {
+      // 如果当前进程没有工作目录（例如主内核线程），则默认为根目录
+      curr = dir_open_root();
+    } else {
+      // 重新打开当前工作目录，以获取一个新的、可以被关闭的句柄
+      curr = dir_reopen(t->cwd);
+    }
+  }
+
+  // 如果起始目录无法打开，则直接失败
+  if (curr == NULL) {
+    return NULL;
+  }
+
+  // 3. 使用 strtok_r 循环解析并遍历路径的每个组件
+  char *token, *p;
+  for (token = strtok_r(s, "/", &p); token != NULL;
+       token = strtok_r(NULL, "/", &p)) {
+    struct inode *inode = NULL;
+
+    // 3a. 在当前目录(curr)中查找名为 token 的条目
+    if (!dir_lookup(curr, token, &inode)) {
+      dir_close(curr); // 清理资源
+      return NULL;     // 找不到该条目，路径无效
+    }
+
+    // 3b. 【重要】检查查找到的 inode 是否确实是一个目录
+    //      如果不是目录，就不能继续深入遍历
+    if (!inode_is_directory(inode)) {
+      inode_close(inode); // 清理 lookup 返回的 inode
+      dir_close(curr);    // 清理当前目录
+      return NULL;
+    }
+
+    // 3c. 打开下一级目录
+    struct dir *next = dir_open(inode);
+    if (next == NULL) {
+      // inode_close(inode); // dir_open 失败时会负责关闭 inode
+      dir_close(curr);
+      return NULL; // 打开失败
+    }
+
+    // 3d. 关闭当前层级的目录，并将指针移到下一级目录
+    dir_close(curr);
+    curr = next;
+  }
+
+  // 5. 成功遍历完所有路径组件，返回最终打开的目录句柄
+  return curr;
 }

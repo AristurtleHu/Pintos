@@ -33,6 +33,7 @@ struct inode {
   bool removed;           /* True if deleted, false otherwise. */
   int deny_write_cnt;     /* 0: writes ok, >0: deny writes. */
   struct inode_disk data; /* Inode content. */
+  bool is_dir; /* True if this inode is a directory, false otherwise. */
 };
 
 /* Returns the block device sector that contains byte offset POS
@@ -292,3 +293,5 @@ void inode_allow_write(struct inode *inode) {
 
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode *inode) { return inode->data.length; }
+
+bool inode_is_directory(const struct inode *inode) { return inode->is_dir; }

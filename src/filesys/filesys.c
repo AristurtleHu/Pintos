@@ -3,6 +3,7 @@
 #include "filesys/file.h"
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
+#include "threads/thread.h"
 #include <debug.h>
 #include <stdio.h>
 #include <string.h>
@@ -36,7 +37,7 @@ void filesys_done(void) { free_map_close(); }
    Returns true if successful, false otherwise.
    Fails if a file named NAME already exists,
    or if internal memory allocation fails. */
-bool filesys_create(const char *name, off_t initial_size) {
+bool filesys_create(const char *name, off_t initial_size, bool is_dir) {
   block_sector_t inode_sector = 0;
   struct dir *dir = dir_open_root();
   bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
@@ -85,4 +86,19 @@ static void do_format(void) {
     PANIC("root directory creation failed");
   free_map_close();
   printf("done.\n");
+}
+
+bool filesys_chdir(const char *name) {
+  // 调用辅助函数打开目标目录
+  struct dir *dir = dir_open_path(name);
+
+  // 如果路径无效或不是目录，则打开失败
+  if (dir == NULL) {
+    return false;
+  }
+
+  // 切换当前工作目录（CWD）
+  dir_close(thread_current()->cwd); // 关闭旧的 CWD
+  thread_current()->cwd = dir;      // 设置新的 CWD
+  return true;
 }
