@@ -331,6 +331,9 @@ static int write(int fd, const void *buffer, unsigned size) {
     putbuf(buffer, size);
     return size;
   } else {
+    if (isdir(fd))
+      exit(-1);
+
     struct thread_file *thread_file = find_file(fd);
     if (thread_file == NULL || thread_file->dir != NULL) {
       return 0;
