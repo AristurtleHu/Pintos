@@ -581,8 +581,9 @@ static void close(int fd) {
 
   acquire_file_lock();
   file_close(thread_file->file);
-  if (thread_file->dir != NULL) {
-    dir_close(thread_file->dir);
+  if (thread_file->dir) {
+    free(thread_file->dir);
+    thread_file->dir = NULL;
   }
   list_remove(&thread_file->elem);
   free(thread_file);
@@ -793,9 +794,6 @@ static bool chdir(const char *dir) {
     open or closed, and creating an open directory does not close it.
     The directory is created with the initial size of 0 bytes. */
 static bool mkdir(const char *dir) {
-  if (dir == NULL || *dir == '\0')
-    return false;
-
   if (!check_str(dir, 15))
     return false;
 
@@ -826,16 +824,11 @@ static bool readdir(int fd, char *name) {
 /* Returns true if the file descriptor FD is a directory.
     Returns false otherwise. */
 static bool isdir(int fd) {
-  acquire_file_lock();
   struct thread_file *thread_file = find_file(fd);
+  acquire_file_lock();
   bool result = false;
-  if (thread_file != NULL) {
-    struct inode *inode = file_get_inode(thread_file->file);
-
-    if (inode != NULL) {
-      result = inode_is_directory(inode);
-    }
-  }
+  struct inode *inode = file_get_inode(thread_file->file);
+  result = inode && inode->data.is_dir;
   release_file_lock();
   return result;
 }
@@ -844,16 +837,10 @@ static bool isdir(int fd) {
     Returns -1 if the file descriptor is invalid or
     if the file does not have an inode. */
 static int inumber(int fd) {
-  acquire_file_lock();
   int inode_number = -1;
   struct thread_file *thread_file = find_file(fd);
-  if (thread_file != NULL) {
-    struct inode *inode = file_get_inode(thread_file->file);
-
-    if (inode != NULL) {
-      inode_number = (int)inode_get_inumber(inode);
-    }
-  }
+  acquire_file_lock();
+  inode_number = inode_get_inumber(file_get_inode(thread_file->file));
   release_file_lock();
   return inode_number;
 }
