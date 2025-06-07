@@ -4,11 +4,9 @@
 
 Please provide the details for your group below, including your group's name and the names and email addresses of all members.
 
-- **Group Name**: *[Enter your group name here]*
-- **Member 1**: FirstName LastName `<email@shanghaitech.edu.cn>`
-- **Member 2**: FirstName LastName `<email@shanghaitech.edu.cn>`
-
-
+- **Group Name**: *boeing*
+- **Member 1**: Renyi Yang `<yangry2023@shanghaitech.edu.cn>`
+- **Member 2**: Jiaxing Wu `<wujx2023@shanghaitech.edu.cn>`
 
 ---
 
@@ -16,9 +14,7 @@ Please provide the details for your group below, including your group's name and
 
 > If you have any preliminary comments on your submission, notes for the TAs, or extra credit, please give them here.
 
-*Your answer here.*
-
-
+None.
 
 ---
 
@@ -169,5 +165,5 @@ Please provide the details for your group below, including your group's name and
 
 > Do you have any suggestions for the TAs to more effectively assist students, either for future quarters or the remaining projects? Any other comments?
 
-*Your answer here.*
+None.
 
