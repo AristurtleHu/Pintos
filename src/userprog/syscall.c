@@ -780,7 +780,7 @@ void munmap(mapid_t mapping_to_unmap) {
 /* Changes the current working directory of the process to DIR.
     Returns true if successful, false otherwise. */
 static bool chdir(const char *dir) {
-  if (!check_str(dir, 15))
+  if (!check_str(dir, NAME_MAX + 1))
     return false;
 
   acquire_file_lock();
@@ -794,7 +794,7 @@ static bool chdir(const char *dir) {
     open or closed, and creating an open directory does not close it.
     The directory is created with the initial size of 0 bytes. */
 static bool mkdir(const char *dir) {
-  if (!check_str(dir, 15))
+  if (!check_str(dir, NAME_MAX + 1))
     return false;
 
   acquire_file_lock();
@@ -808,7 +808,7 @@ static bool mkdir(const char *dir) {
     and returns true. If there are no more entries in the
     directory, returns false. */
 static bool readdir(int fd, char *name) {
-  if (!check_str(name, 15))
+  if (!check_str(name, NAME_MAX + 1))
     return false;
 
   struct thread_file *thread_file = find_file(fd);
