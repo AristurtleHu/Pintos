@@ -3,6 +3,7 @@
 
 #include "devices/block.h"
 #include "filesys/off_t.h"
+#include <list.h>
 #include <stdbool.h>
 
 /* On-disk inode.
