@@ -440,8 +440,10 @@ static bool inode_allocate_sector_indirect(block_sector_t *entry,
   for (size_t i = 0; i < l; ++i) {
     size_t subsize =
         level == 1 ? 1 : min(num_sectors, INDIRECT_BLOCKS_PER_SECTOR);
-    if (!inode_allocate_sector_indirect(&indirect_block.blocks[i], subsize,
-                                        level - 1))
+
+    bool success = inode_allocate_sector_indirect(&indirect_block.blocks[i],
+                                                  subsize, level - 1);
+    if (!success)
       return false;
     num_sectors -= subsize;
   }
