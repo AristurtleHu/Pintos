@@ -811,13 +811,14 @@ static bool readdir(int fd, char *name) {
   if (!check_str(name, 15))
     return false;
 
-  acquire_file_lock();
   struct thread_file *thread_file = find_file(fd);
   bool success = false;
-  if (thread_file != NULL && thread_file->dir != NULL) {
+
+  acquire_file_lock();
+  if (thread_file != NULL && thread_file->dir != NULL)
     success = dir_readdir(thread_file->dir, name);
-  }
   release_file_lock();
+
   return success;
 }
 
@@ -825,11 +826,14 @@ static bool readdir(int fd, char *name) {
     Returns false otherwise. */
 static bool isdir(int fd) {
   struct thread_file *thread_file = find_file(fd);
-  acquire_file_lock();
   bool result = false;
+
+  acquire_file_lock();
   struct inode *inode = file_get_inode(thread_file->file);
-  result = inode && inode->data.is_dir;
+  if (inode != NULL)
+    result = inode_is_directory(inode);
   release_file_lock();
+
   return result;
 }
 
@@ -837,10 +841,14 @@ static bool isdir(int fd) {
     Returns -1 if the file descriptor is invalid or
     if the file does not have an inode. */
 static int inumber(int fd) {
-  int inode_number = -1;
   struct thread_file *thread_file = find_file(fd);
+  int inode_number = -1;
+
   acquire_file_lock();
-  inode_number = inode_get_inumber(file_get_inode(thread_file->file));
+  struct inode *inode = file_get_inode(thread_file->file);
+  if (inode != NULL)
+    inode_number = inode_get_inumber(inode);
   release_file_lock();
+
   return inode_number;
 }
