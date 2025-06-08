@@ -21,5 +21,6 @@ void cache_init(void);
 void cache_close(void);
 void cache_read(block_sector_t, void *);
 void cache_write(block_sector_t, const void *);
+void read_ahead(block_sector_t sector);
 
 #endif
