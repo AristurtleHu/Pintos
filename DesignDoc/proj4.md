@@ -233,9 +233,11 @@ This strategy reduces disk I/O by consolidating multiple writes to the same bloc
 
 > **C4:** Describe your implementation of read-ahead.
 
-Based on an analysis of the provided source code, a read-ahead caching strategy has not been implemented. The caching system operates strictly on-demand; when a block is requested via the `cache_read` function, only that specific block is fetched from the disk into the cache if it is not already present. The code contains no logic to preemptively fetch subsequent blocks, such as sector N+1, in anticipation of future sequential reads.
+My implementation of read-ahead uses a producer-consumer pattern to asynchronously prefetch sequential blocks. 
 
-// TODO:
+When `cache_read` is called, it triggers read-ahead by calling `read_ahead_add(sector + 1)` to queue the next sequential sector for prefetching. This function creates a `read_ahead_entry` containing the sector number, adds it to the `read_ahead_list`, and signals the `read_ahead_sema` semaphore to notify.
+
+The background thread waits on the semaphore and processes queued sectors by calling the `read_ahead` function, which loads the requested sector into the cache if it's not already present. This approach allows the main thread to continue execution immediately after its read operation while the background thread prefetches the next block, reducing latency for sequential access patterns like file streaming or large data processing.
 
 
 ### Synchronization
